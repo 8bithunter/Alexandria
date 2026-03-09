@@ -1,0 +1,305 @@
+﻿using namespace std;
+
+class FieldVertex
+{
+private:
+	double x, y, z; // we should never have to look at or change the cords
+	short int red, green, blue, alpha; // we should never have to look at the colours
+
+public:   
+	void setZ(double z) { this->z = z; } // we might want to change z, but not x and y for graphing a 2d thing
+	void setColor(short int r, short int g, short int b, short int a) { red = r; green = g; blue = b; alpha = a; } // we might want to change the color of the vertex, but not its position
+
+
+
+	double fieldX = 0, fieldY = 0, fieldZ = 0;
+
+	double ddtX = 0, ddtY = 0, ddtZ = 0;
+
+	double gradX = 0, gradY = 0, gradZ = 0;
+
+	double div = 0;
+
+	double curlX = 0, curlY = 0, curlZ = 0;
+
+	double laplacianX = 0;
+
+	bool isUpdated = false;
+
+	FieldVertex(double x, double y, double z)
+		: x(x), y(y), z(z),
+		  red(255), green(255), blue(255), alpha(255),
+		neighbourUp(nullptr), neighbourDown(nullptr), neighbourLeft(nullptr), neighbourRight(nullptr), neighbourOut(nullptr), neighbourIn(nullptr)
+	{}
+
+
+
+	FieldVertex *neighbourUp, *neighbourDown, *neighbourLeft, *neighbourRight, *neighbourOut, *neighbourIn; // pointers otherwise poopy
+
+
+
+	void calculateGrad()
+	{
+		if (neighbourRight != nullptr)
+		{
+			if (neighbourLeft != nullptr)
+			{
+				gradX = (neighbourRight->fieldX - neighbourLeft->fieldX) / 2.0;
+			}
+			else
+			{
+				gradX = neighbourRight->fieldX - fieldX;
+			}
+		}
+		else
+		{
+			if (neighbourLeft != nullptr)
+			{
+				gradX = fieldX - neighbourLeft->fieldX;
+			}
+			else
+			{
+				gradX = 0; 
+			}
+		}
+
+		if (neighbourUp != nullptr)
+		{
+			if(neighbourDown != nullptr)
+			{
+				gradY = (neighbourUp->fieldY - neighbourDown->fieldY) / 2.0;
+			}
+			else
+			{
+				gradY = neighbourUp->fieldY - fieldY;
+			}
+		}
+		else
+		{
+			if(neighbourDown != nullptr)
+			{
+				gradY = fieldY - neighbourDown->fieldY;
+			}
+			else
+			{
+				gradY = 0; 
+			}
+		}
+
+		if (neighbourOut != nullptr)
+		{
+			if (neighbourIn != nullptr)
+			{
+				gradZ = (neighbourOut->fieldZ - neighbourIn->fieldZ) / 2.0;
+			}
+			else
+			{
+				gradZ = neighbourOut->fieldZ - fieldZ;
+			}
+		}
+		else
+		{
+			if (neighbourIn != nullptr)
+			{
+				gradZ = fieldZ - neighbourIn->fieldZ;
+			}
+			else
+			{
+				gradZ = 0;
+			}
+		}
+	}
+
+	void calculateDiv()
+	{
+		double dfdX = 0, dfdY = 0, dfdZ = 0;
+		if (neighbourRight != nullptr)
+		{
+			if (neighbourLeft != nullptr)
+			{
+				dfdX = (neighbourRight->fieldX - neighbourLeft->fieldX) / 2.0;
+			}
+			else
+			{
+				dfdX = neighbourRight->fieldX - fieldX;
+			}
+		}
+		else
+		{
+			if (neighbourLeft != nullptr)
+			{
+				dfdX = fieldX - neighbourLeft->fieldX;
+			}
+			else
+			{
+				dfdX = 0;
+			}
+		}
+
+		if (neighbourUp != nullptr)
+		{
+			if (neighbourDown != nullptr)
+			{
+				dfdY = (neighbourUp->fieldY - neighbourDown->fieldY) / 2.0;
+			}
+			else
+			{
+				dfdY = neighbourUp->fieldY - fieldY;
+			}
+		}
+		else
+		{
+			if (neighbourDown != nullptr)
+			{
+				dfdY = fieldY - neighbourDown->fieldY;
+			}
+			else
+			{
+				dfdY = 0;
+			}
+		}
+
+		if (neighbourOut != nullptr)
+		{
+			if (neighbourIn != nullptr)
+			{
+				dfdZ = (neighbourOut->fieldZ - neighbourIn->fieldZ) / 2.0;
+			}
+			else
+			{
+				dfdZ = neighbourOut->fieldZ - fieldZ;
+			}
+		}
+		else
+		{
+			if (neighbourIn != nullptr)
+			{
+				dfdZ = fieldZ - neighbourIn->fieldZ;
+			}
+			else
+			{
+				dfdZ = 0;
+			}
+		}
+
+		div = dfdX + dfdY + dfdZ;
+	}
+
+	void calculateCurl()
+	{
+		double dfdX = 0, dfdY = 0, dfdZ = 0;
+		if (neighbourRight != nullptr)
+		{
+			if (neighbourLeft != nullptr)
+			{
+				dfdX = (neighbourRight->fieldX - neighbourLeft->fieldX) / 2.0;
+			}
+			else
+			{
+				dfdX = neighbourRight->fieldX - fieldX;
+			}
+		}
+		else
+		{
+			if (neighbourLeft != nullptr)
+			{
+				dfdX = fieldX - neighbourLeft->fieldX;
+			}
+			else
+			{
+				dfdX = 0;
+			}
+		}
+
+		if (neighbourUp != nullptr)
+		{
+			if (neighbourDown != nullptr)
+			{
+				dfdY = (neighbourUp->fieldY - neighbourDown->fieldY) / 2.0;
+			}
+			else
+			{
+				dfdY = neighbourUp->fieldY - fieldY;
+			}
+		}
+		else
+		{
+			if (neighbourDown != nullptr)
+			{
+				dfdY = fieldY - neighbourDown->fieldY;
+			}
+			else
+			{
+				dfdY = 0;
+			}
+		}
+
+		if (neighbourOut != nullptr)
+		{
+			if (neighbourIn != nullptr)
+			{
+				dfdZ = (neighbourOut->fieldZ - neighbourIn->fieldZ) / 2.0;
+			}
+			else
+			{
+				dfdZ = neighbourOut->fieldZ - fieldZ;
+			}
+		}
+		else
+		{
+			if (neighbourIn != nullptr)
+			{
+				dfdZ = fieldZ - neighbourIn->fieldZ;
+			}
+			else
+			{
+				dfdZ = 0;
+			}
+		}
+
+		curlX = dfdY - dfdZ;
+		curlY = dfdZ - dfdX;
+		curlZ = dfdX - dfdY;
+	}
+
+	void calculateLaplacian()
+	{
+		double d2fdX2 = 0, d2fdY2 = 0, d2fdZ2 = 0;
+		double dfdXRight = 0, dfdXLeft = 0, dfdYUp = 0, dfdYDown = 0, dfdZOut = 0, dfdZIn = 0;
+
+		if (neighbourRight != nullptr)
+		{
+			if (neighbourRight->neighbourRight != nullptr)
+			{
+				//if (neighbourLeft->neighbourLeft != nullptr) dont need, cuz it always exsists
+				dfdXRight = (neighbourRight->neighbourRight->fieldX - fieldX) / 2.0;					
+			}
+			else
+			{
+				dfdXRight = neighbourRight->fieldX - fieldX;
+			}
+		}
+		else
+		{
+			d2fdX2 = 0; //just equal to left side only?
+		}
+
+		if (neighbourLeft != nullptr)
+		{
+			if (neighbourLeft->neighbourLeft != nullptr)
+			{
+				//if (neighbourLeft->neighbourLeft != nullptr) dont need, cuz it always exsists
+				dfdXLeft = (neighbourLeft->neighbourLeft->fieldX - fieldX) / 2.0;
+			}
+			else
+			{
+				dfdXLeft = neighbourLeft->fieldX - fieldX;
+			}
+		}
+		else
+		{
+			dfdXLeft = 0;
+		}
+
+	}
+};

@@ -1,0 +1,272 @@
+﻿#include <iostream>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <cmath>
+#include <vector>
+#include "FieldVertex.cpp"
+
+const char* vertexShaderSource = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+out vec3 vColor;
+void main()
+{
+    vColor = aColor;
+    gl_Position = vec4(aPos, 1.0);
+}
+)";
+
+// Fragment shader source - use per-vertex color
+const char* fragmentShaderSource = R"(
+#version 330 core
+in vec3 vColor;
+out vec4 FragColor;
+void main()
+{
+    FragColor = vec4(vColor, 1.0);
+}
+
+)";
+
+int main()
+{
+    // Initialize GLFW
+    if (!glfwInit())
+        return -1;
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Triangle", nullptr, nullptr);
+    if (!window)
+    {
+        glfwTerminate();
+        return -1;
+    }
+
+    glfwMakeContextCurrent(window);
+
+    // Load OpenGL functions
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD\n";
+        return -1;
+    }
+
+    glViewport(0, 0, 800, 600);
+
+    // (removed demo triangle buffers)
+
+    // Compile vertex shader
+    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+    glCompileShader(vertexShader);
+
+    // Compile fragment shader
+    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
+    glCompileShader(fragmentShader);
+
+    // Link shaders
+    unsigned int shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // grid rendering buffers (positions + colors)
+    unsigned int gridVAO, gridVBO;
+    glGenVertexArrays(1, &gridVAO);
+    glGenBuffers(1, &gridVBO);
+    glBindVertexArray(gridVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+    // position (location 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // color (location 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindVertexArray(0);
+
+    // timing for delta time
+    double lastTime = glfwGetTime();
+
+    // --- create a 2D grid of FieldVertex ---
+    int resolution = 32; // change this to adjust grid size
+    // spacing so vertices fit inside NDC [-1,1]
+    double spacing = (resolution > 1) ? (2.0 / (resolution - 1)) : 0.0;
+
+    // allocate grid (rows = resolution in Y, cols = resolution in X)
+    std::vector<std::vector<FieldVertex*>> grid(resolution, std::vector<FieldVertex*>(resolution, nullptr));
+    for (int i = 0; i < resolution; ++i)
+    {
+        for (int j = 0; j < resolution; ++j)
+        {
+            double x = -1.0 + j * spacing;
+            double y = -1.0 + i * spacing;
+            // initialize fieldX as a left-to-right ramp [0,1]
+            double initFieldX = (resolution > 1) ? static_cast<double>(j) / (resolution - 1) : 0.0;
+            grid[i][j] = new FieldVertex(x, y, 0.0, spacing, initFieldX, 0.0, 0.0);
+        }
+    }
+
+    // link 2D neighbours (up/down/left/right)
+    for (int i = 0; i < resolution; ++i)
+    {
+        for (int j = 0; j < resolution; ++j)
+        {
+            FieldVertex* v = grid[i][j];
+            v->neighbourUp = (i + 1 < resolution) ? grid[i + 1][j] : nullptr;
+            v->neighbourDown = (i - 1 >= 0) ? grid[i - 1][j] : nullptr;
+            v->neighbourLeft = (j - 1 >= 0) ? grid[i][j - 1] : nullptr;
+            v->neighbourRight = (j + 1 < resolution) ? grid[i][j + 1] : nullptr;
+            // out/in remain null for 2D
+            v->neighbourOut = nullptr;
+            v->neighbourIn = nullptr;
+        }
+    }
+
+    // temporary storage for updated field values so we don't modify originals mid-computation
+    struct TempCell { double fieldX, fieldY, fieldZ; double dxdt, dydt, dzdt; double d2x, d2y, d2z; };
+    std::vector<std::vector<TempCell>> tempGrid(resolution, std::vector<TempCell>(resolution));
+
+    // Render loop
+    while (!glfwWindowShouldClose(window))
+    {
+        // compute delta time and advance animation phase
+        double currentTime = glfwGetTime();
+        double deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+
+        // (removed demo color animation)
+
+        // --- physics update: compute into tempGrid using current grid state ---
+        for (int i = 0; i < resolution; ++i)
+        {
+            for (int j = 0; j < resolution; ++j)
+            {
+                FieldVertex* v = grid[i][j];
+                // compute spatial operators based on current neighbours
+                v->calculateGrad();
+                v->calculateDiv();
+                v->calculateLaplacian();
+                v->calculateddt();
+                v->updateColour();
+
+                // integrate into temporary storage (semi-explicit Euler with optional second derivative)
+                TempCell &t = tempGrid[i][j];
+                t.fieldX = v->fieldX + v->dxdt * deltaTime + 0.5 * v->d2xdt2 * deltaTime * deltaTime;
+                t.fieldY = v->fieldY + v->dydt * deltaTime + 0.5 * v->d2ydt2 * deltaTime * deltaTime;
+                t.fieldZ = v->fieldZ + v->dzdt * deltaTime + 0.5 * v->d2zdt2 * deltaTime * deltaTime;
+
+                t.dxdt = v->dxdt + v->d2xdt2 * deltaTime;
+                t.dydt = v->dydt + v->d2ydt2 * deltaTime;
+                t.dzdt = v->dzdt + v->d2zdt2 * deltaTime;
+
+                t.d2x = v->d2xdt2;
+                t.d2y = v->d2ydt2;
+                t.d2z = v->d2zdt2;
+            }
+        }
+
+        // copy temporary results back into the real grid
+        for (int i = 0; i < resolution; ++i)
+        {
+            for (int j = 0; j < resolution; ++j)
+            {
+                FieldVertex* v = grid[i][j];
+                TempCell &t = tempGrid[i][j];
+                v->fieldX = t.fieldX;
+                v->fieldY = t.fieldY;
+                v->fieldZ = t.fieldZ;
+
+                v->dxdt = t.dxdt;
+                v->dydt = t.dydt;
+                v->dzdt = t.dzdt;
+
+                v->d2xdt2 = t.d2x;
+                v->d2ydt2 = t.d2y;
+                v->d2zdt2 = t.d2z;
+            }
+        }
+
+        // build mesh data for grid cells (two triangles per cell)
+        std::vector<float> meshData;
+        meshData.reserve((resolution - 1) * (resolution - 1) * 6 * 6);
+        for (int i = 0; i < resolution - 1; ++i)
+        {
+            for (int j = 0; j < resolution - 1; ++j)
+            {
+                FieldVertex* bl = grid[i][j];
+                FieldVertex* br = grid[i][j + 1];
+                FieldVertex* tl = grid[i + 1][j];
+                FieldVertex* tr = grid[i + 1][j + 1];
+
+                // average color from surrounding vertices (map via tanh to [0,1])
+                double avgX = (bl->fieldX + br->fieldX + tl->fieldX + tr->fieldX) * 0.25;
+                double avgY = (bl->fieldY + br->fieldY + tl->fieldY + tr->fieldY) * 0.25;
+                double avgZ = (bl->fieldZ + br->fieldZ + tl->fieldZ + tr->fieldZ) * 0.25;
+                float cr = static_cast<float>(0.5 * (std::tanh(avgX) + 1.0));
+                float cg = static_cast<float>(0.5 * (std::tanh(avgY) + 1.0));
+                float cb = static_cast<float>(0.5 * (std::tanh(avgZ) + 1.0));
+
+                // compute positions from grid indices (don't access private members)
+                float blx = static_cast<float>(-1.0 + j * spacing);
+                float bly = static_cast<float>(-1.0 + i * spacing);
+                float brx = static_cast<float>(-1.0 + (j + 1) * spacing);
+                float bry = bly;
+                float tlx = blx;
+                float tly = static_cast<float>(-1.0 + (i + 1) * spacing);
+                float trx = brx;
+                float try_ = tly;
+                float z = 0.0f;
+
+                // triangle 1: bl, br, tl
+                meshData.push_back(blx); meshData.push_back(bly); meshData.push_back(z); meshData.push_back(cr); meshData.push_back(cg); meshData.push_back(cb);
+                meshData.push_back(brx); meshData.push_back(bry); meshData.push_back(z); meshData.push_back(cr); meshData.push_back(cg); meshData.push_back(cb);
+                meshData.push_back(tlx); meshData.push_back(tly); meshData.push_back(z); meshData.push_back(cr); meshData.push_back(cg); meshData.push_back(cb);
+
+                // triangle 2: br, tr, tl
+                meshData.push_back(brx); meshData.push_back(bry); meshData.push_back(z); meshData.push_back(cr); meshData.push_back(cg); meshData.push_back(cb);
+                meshData.push_back(trx); meshData.push_back(try_); meshData.push_back(z); meshData.push_back(cr); meshData.push_back(cg); meshData.push_back(cb);
+                meshData.push_back(tlx); meshData.push_back(tly); meshData.push_back(z); meshData.push_back(cr); meshData.push_back(cg); meshData.push_back(cb);
+            }
+        }
+
+        // upload mesh to GPU and draw
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(shaderProgram);
+        glBindVertexArray(gridVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+        glBufferData(GL_ARRAY_BUFFER, meshData.size() * sizeof(float), meshData.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(meshData.size() / 6));
+        glBindVertexArray(0);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    // (demo triangle resources removed)
+
+    // cleanup grid allocations
+    for (int i = 0; i < resolution; ++i)
+    {
+        for (int j = 0; j < resolution; ++j)
+        {
+            delete grid[i][j];
+        }
+    }
+
+    // delete grid GL resources
+    glDeleteVertexArrays(1, &gridVAO);
+    glDeleteBuffers(1, &gridVBO);
+
+    glfwTerminate();
+    return 0;
+}
