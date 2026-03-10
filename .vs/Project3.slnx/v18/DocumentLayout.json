@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\eight\\source\\repos\\Project3\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{2B830DAD-C093-47C4-8BC1-297496EB6AD6}|Project3.vcxproj|C:\\Users\\eight\\source\\repos\\Project3\\Main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{2B830DAD-C093-47C4-8BC1-297496EB6AD6}|Project3.vcxproj|solutionrelative:Main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{2B830DAD-C093-47C4-8BC1-297496EB6AD6}|Project3.vcxproj|C:\\Users\\eight\\source\\repos\\Project3\\FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{2B830DAD-C093-47C4-8BC1-297496EB6AD6}|Project3.vcxproj|solutionrelative:FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2B830DAD-C093-47C4-8BC1-297496EB6AD6}|Project3.vcxproj|C:\\Users\\eight\\source\\repos\\Project3\\Main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{2B830DAD-C093-47C4-8BC1-297496EB6AD6}|Project3.vcxproj|solutionrelative:Main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,30 +18,30 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "FieldVertex.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Project3\\FieldVertex.cpp",
               "RelativeDocumentMoniker": "FieldVertex.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Project3\\FieldVertex.cpp",
               "RelativeToolTip": "FieldVertex.cpp",
-              "ViewState": "AgIAAM0AAAAAAAAAAAAwwOEAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAK8AAAAAAAAAAAAwwMIAAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-03-04T21:23:53.728Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "Main.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Project3\\Main.cpp",
               "RelativeDocumentMoniker": "Main.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Project3\\Main.cpp",
               "RelativeToolTip": "Main.cpp",
-              "ViewState": "AgIAAEUAAAAAAAAAAAAAAFMAAAAtAAAAAAAAAA==",
+              "ViewState": "AgIAAGAAAAAAAAAAAAAAAFwAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-03-02T02:06:03.052Z",
               "EditorCaption": ""

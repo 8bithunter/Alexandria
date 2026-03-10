@@ -192,7 +192,7 @@ public:
 
     void calculateddt()
     {
-        dxdt = 0.01 * laplacianX;
+        d2xdt2 = 0.01 * laplacianX;
         dydt = 0.01 * laplacianY;
         dzdt = 0.01 * laplacianZ;
 	}
