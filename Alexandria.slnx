@@ -3,6 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Alexandria.vcxproj" />
-  <Project Path="Project3.vcxproj" Id="2b830dad-c093-47c4-8bc1-297496eb6ad6" />
+  <Project Path="Alexandria.vcxproj" Id="acbd8df9-4302-4734-b99a-5a332c057313" />
 </Solution>

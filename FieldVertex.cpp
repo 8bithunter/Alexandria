@@ -11,10 +11,24 @@ private:
 
 	double distanceBetweenVertexes = 1;
 
+    double gradXx = 0, gradXy = 0, gradXz = 0,
+           gradYx = 0, gradYy = 0, gradYz = 0,
+           gradZx = 0, gradZy = 0, gradZz = 0;
+	double lapX = 0, lapY = 0, lapZ = 0;
+
+    double previousFieldX = 0, previousFieldY = 0, previousFieldZ = 0,
+           previousFieldXNeighbourUp = 0, previousFieldYNeighbourUp = 0, previousFieldZNeighbourUp = 0,
+           previousFieldXNeighbourDown = 0, previousFieldYNeighbourDown = 0, previousFieldZNeighbourDown = 0,
+           previousFieldXNeighbourLeft = 0, previousFieldYNeighbourLeft = 0, previousFieldZNeighbourLeft = 0,
+           previousFieldXNeighbourRight = 0, previousFieldYNeighbourRight = 0, previousFieldZNeighbourRight = 0,
+           previousFieldXNeighbourOut = 0, previousFieldYNeighbourOut = 0, previousFieldZNeighbourOut = 0,
+           previousFieldXNeighbourIn= 0, previousFieldYNeighbourIn = 0, previousFieldZNeighbourIn = 0;
+           
+
 public:   
 	void setZ(double z) { this->z = z; } // we might want to change z, but not x and y for graphing a 2d thing
 	void setColour(short int r, short int g, short int b, short int a) { red = r; green = g; blue = b; alpha = a; } // we might want to change the color of the vertex, but not its position
-
+    
     // Accessor: get color as normalized floats in [0,1]
     void getColorFloat(float &outR, float &outG, float &outB) const
     {
@@ -23,13 +37,285 @@ public:
         outB = static_cast<float>(blue) / 255.0f;
     }
 
+    double getGradXx()
+    {
+
+        if (neighbourLeft->fieldX == previousFieldXNeighbourLeft && neighbourRight->fieldX == previousFieldXNeighbourRight)
+        {
+            return gradXx;
+        }
+        else
+        {
+            previousFieldXNeighbourLeft = neighbourLeft->fieldX;
+            previousFieldXNeighbourRight = neighbourRight->fieldX;
+            previousFieldYNeighbourLeft = neighbourLeft->fieldY;
+            previousFieldYNeighbourRight = neighbourRight->fieldY;
+            previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
+            previousFieldZNeighbourRight = neighbourRight->fieldZ;
+            calculateGradX();
+            return gradXx;
+        }
+    }
+
+    double getGradXy()
+    {
+        if (neighbourLeft->fieldX == previousFieldXNeighbourLeft && neighbourRight->fieldX == previousFieldXNeighbourRight)
+        {
+            return gradXy;
+        }
+        else
+        {
+            previousFieldXNeighbourLeft = neighbourLeft->fieldX;
+            previousFieldXNeighbourRight = neighbourRight->fieldX;
+            previousFieldYNeighbourLeft = neighbourLeft->fieldY;
+            previousFieldYNeighbourRight = neighbourRight->fieldY;
+            previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
+            previousFieldZNeighbourRight = neighbourRight->fieldZ;
+
+            calculateGradX();
+            return gradXy;
+        }
+    }
+
+    double getGradXz()
+    {
+        if (neighbourLeft->fieldX == previousFieldXNeighbourLeft && neighbourRight->fieldX == previousFieldXNeighbourRight)
+        {
+            return gradXz;
+        }
+        else
+        {
+            previousFieldXNeighbourLeft = neighbourLeft->fieldX;
+            previousFieldXNeighbourRight = neighbourRight->fieldX;
+            previousFieldYNeighbourLeft = neighbourLeft->fieldY;
+            previousFieldYNeighbourRight = neighbourRight->fieldY;
+            previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
+            previousFieldZNeighbourRight = neighbourRight->fieldZ;
+
+            calculateGradX();
+            return gradXz;
+        }
+    }
+
+    double getGradYx()
+    {
+        if (neighbourDown->fieldX == previousFieldXNeighbourDown && neighbourUp->fieldX == previousFieldXNeighbourUp)
+        {
+            return gradYx;
+        }
+        else
+        {
+            previousFieldXNeighbourDown = neighbourDown->fieldX;
+            previousFieldXNeighbourUp = neighbourUp->fieldX;
+            previousFieldYNeighbourDown = neighbourDown->fieldY;
+            previousFieldYNeighbourUp = neighbourUp->fieldY;
+            previousFieldZNeighbourDown = neighbourDown->fieldZ;
+            previousFieldZNeighbourUp = neighbourUp->fieldZ;
+
+            calculateGradY();
+            return gradYx;
+        }
+    }
+
+    double getGradYy()
+    {
+        if (neighbourDown->fieldX == previousFieldXNeighbourDown && neighbourUp->fieldX == previousFieldXNeighbourUp)
+        {
+            return gradYy;
+        }
+        else
+        {
+            previousFieldXNeighbourDown = neighbourDown->fieldX;
+            previousFieldXNeighbourUp = neighbourUp->fieldX;
+            previousFieldYNeighbourDown = neighbourDown->fieldY;
+            previousFieldYNeighbourUp = neighbourUp->fieldY;
+            previousFieldZNeighbourDown = neighbourDown->fieldZ;
+            previousFieldZNeighbourUp = neighbourUp->fieldZ;
+
+            calculateGradY();
+            return gradYy;
+        }
+    }
+
+    double getGradYz()
+    {
+        if (neighbourDown->fieldX == previousFieldXNeighbourDown && neighbourUp->fieldX == previousFieldXNeighbourUp)
+        {
+            return gradYz;
+        }
+        else
+        {
+            previousFieldXNeighbourDown = neighbourDown->fieldX;
+            previousFieldXNeighbourUp = neighbourUp->fieldX;
+            previousFieldYNeighbourDown = neighbourDown->fieldY;
+            previousFieldYNeighbourUp = neighbourUp->fieldY;
+            previousFieldZNeighbourDown = neighbourDown->fieldZ;
+            previousFieldZNeighbourUp = neighbourUp->fieldZ;
+
+            calculateGradY();
+            return gradYz;
+        }
+    }
+
+    double getGradZx()
+    {
+        if (neighbourIn->fieldX == previousFieldXNeighbourIn && neighbourOut->fieldX == previousFieldXNeighbourOut)
+        {
+            return gradZx;
+        }
+        else
+        {
+            previousFieldXNeighbourIn = neighbourIn->fieldX;
+            previousFieldXNeighbourOut = neighbourOut->fieldX;
+            previousFieldYNeighbourIn = neighbourIn->fieldY;
+            previousFieldYNeighbourOut = neighbourOut->fieldY;
+            previousFieldZNeighbourIn = neighbourIn->fieldZ;
+            previousFieldZNeighbourOut = neighbourOut->fieldZ;
+
+            calculateGradZ();
+            return gradZx;
+        }
+    }
+
+    double getGradZy()
+    {
+        if (neighbourIn->fieldX == previousFieldXNeighbourIn && neighbourOut->fieldX == previousFieldXNeighbourOut)
+        {
+            return gradZy;
+        }
+        else
+        {
+            previousFieldXNeighbourIn = neighbourIn->fieldX;
+            previousFieldXNeighbourOut = neighbourOut->fieldX;
+            previousFieldYNeighbourIn = neighbourIn->fieldY;
+            previousFieldYNeighbourOut = neighbourOut->fieldY;
+            previousFieldZNeighbourIn = neighbourIn->fieldZ;
+            previousFieldZNeighbourOut = neighbourOut->fieldZ;
+
+            calculateGradZ();
+            return gradZy;
+        }
+    }
+
+    double getGradZz()
+    {
+        if (neighbourIn->fieldX == previousFieldXNeighbourIn && neighbourOut->fieldX == previousFieldXNeighbourOut)
+        {
+            return gradZz;
+        }
+        else
+        {
+            previousFieldXNeighbourIn = neighbourIn->fieldX;
+            previousFieldXNeighbourOut = neighbourOut->fieldX;
+            previousFieldYNeighbourIn = neighbourIn->fieldY;
+            previousFieldYNeighbourOut = neighbourOut->fieldY;
+            previousFieldZNeighbourIn = neighbourIn->fieldZ;
+            previousFieldZNeighbourOut = neighbourOut->fieldZ;
+
+            calculateGradZ();
+            return gradZz;
+        }
+    }
+
+	double getDiv() { return getGradXx() + getGradYy() + getGradZz(); }
+
+    double getCurlX() { return getGradYz() - getGradZy(); }
+
+	double getCurlY() { return getGradZx() - getGradXz(); }
+
+	double getCurlZ() { return getGradXy() - getGradYx(); }
+
+    double getLaplacianX()
+    {
+        if (previousFieldXNeighbourRight == neighbourRight->fieldX &&
+            previousFieldXNeighbourLeft == neighbourLeft->fieldX &&
+            previousFieldXNeighbourUp == neighbourUp->fieldX &&
+            previousFieldXNeighbourDown == neighbourDown->fieldX &&
+            previousFieldXNeighbourOut == neighbourOut->fieldX &&
+            previousFieldXNeighbourIn == neighbourIn->fieldX &&
+            previousFieldX == fieldX)
+        {
+            return lapX;  
+        }
+
+        previousFieldXNeighbourRight = neighbourRight->fieldX;
+        previousFieldXNeighbourLeft = neighbourLeft->fieldX;
+        previousFieldXNeighbourUp = neighbourUp->fieldX;
+        previousFieldXNeighbourDown = neighbourDown->fieldX;
+        previousFieldXNeighbourOut = neighbourOut->fieldX;
+        previousFieldXNeighbourIn = neighbourIn->fieldX;
+        previousFieldX = fieldX;
+
+        lapX = (previousFieldXNeighbourRight + previousFieldXNeighbourLeft +
+            previousFieldXNeighbourUp + previousFieldXNeighbourDown +
+            previousFieldXNeighbourOut + previousFieldXNeighbourIn -
+            6.0 * previousFieldX) * invH2;
+
+        return lapX;
+    }
+
+    double getLaplacianY()
+    {
+        if (previousFieldYNeighbourRight == neighbourRight->fieldY &&
+            previousFieldYNeighbourLeft == neighbourLeft->fieldY &&
+            previousFieldYNeighbourUp == neighbourUp->fieldY &&
+            previousFieldYNeighbourDown == neighbourDown->fieldY &&
+            previousFieldYNeighbourOut == neighbourOut->fieldY &&
+            previousFieldYNeighbourIn == neighbourIn->fieldY &&
+            previousFieldY == fieldY)
+        {
+            return lapY;
+        }
+
+        previousFieldYNeighbourRight = neighbourRight->fieldY;
+        previousFieldYNeighbourLeft = neighbourLeft->fieldY;
+        previousFieldYNeighbourUp = neighbourUp->fieldY;
+        previousFieldYNeighbourDown = neighbourDown->fieldY;
+        previousFieldYNeighbourOut = neighbourOut->fieldY;
+        previousFieldYNeighbourIn = neighbourIn->fieldY;
+        previousFieldY = fieldY;
+
+        lapY = (previousFieldYNeighbourRight + previousFieldYNeighbourLeft +
+            previousFieldYNeighbourUp + previousFieldYNeighbourDown +
+            previousFieldYNeighbourOut + previousFieldYNeighbourIn -
+            6.0 * previousFieldY) * invH2;
+
+        return lapY;
+    }
+
+    double getLaplacianZ()
+    {
+        if (previousFieldZNeighbourRight == neighbourRight->fieldZ &&
+            previousFieldZNeighbourLeft == neighbourLeft->fieldZ &&
+            previousFieldZNeighbourUp == neighbourUp->fieldZ &&
+            previousFieldZNeighbourDown == neighbourDown->fieldZ &&
+            previousFieldZNeighbourOut == neighbourOut->fieldZ &&
+            previousFieldZNeighbourIn == neighbourIn->fieldZ &&
+            previousFieldZ == fieldZ)
+        {
+            return lapZ;
+        }
+
+        previousFieldZNeighbourRight = neighbourRight->fieldZ;
+        previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
+        previousFieldZNeighbourUp = neighbourUp->fieldZ;
+        previousFieldZNeighbourDown = neighbourDown->fieldZ;
+        previousFieldZNeighbourOut = neighbourOut->fieldZ;
+        previousFieldZNeighbourIn = neighbourIn->fieldZ;
+        previousFieldZ = fieldZ;
+
+        lapZ = (previousFieldZNeighbourRight + previousFieldZNeighbourLeft +
+            previousFieldZNeighbourUp + previousFieldZNeighbourDown +
+            previousFieldZNeighbourOut + previousFieldZNeighbourIn -
+            6.0 * previousFieldZ) * invH2;
+
+        return lapZ;
+    }
+
+
 	double fieldX = 0, fieldY = 0, fieldZ = 0;
 	double dxdt = 0, dydt = 0, dzdt = 0;
 	double d2xdt2 = 0, d2ydt2 = 0, d2zdt2 = 0;
-	double gradX = 0, gradY = 0, gradZ = 0;
-	double div = 0;
-	double curlX = 0, curlY = 0, curlZ = 0;
-	double laplacianX = 0, laplacianY = 0, laplacianZ = 0;
 
 	FieldVertex(double x, double y, double z, double d, double fx = 0, double fy = 0, double fz = 0)
 		: x(x), y(y), z(z), distanceBetweenVertexes(d),
@@ -38,163 +324,38 @@ public:
 		  neighbourUp(nullptr), neighbourDown(nullptr), neighbourLeft(nullptr), neighbourRight(nullptr), neighbourOut(nullptr), neighbourIn(nullptr)
 	{}
 
-
-
 	FieldVertex *neighbourUp, *neighbourDown, *neighbourLeft, *neighbourRight, *neighbourOut, *neighbourIn; // pointers otherwise poopy
 
     double invH = 1.0 / distanceBetweenVertexes;
     double inv2H = 0.5 * invH;
     double invH2 = invH * invH;
 
-    void calculateGrad()
+    void calculateGradX()
     {
-        if (neighbourRight && neighbourLeft)
-            gradX = (neighbourRight->fieldX - neighbourLeft->fieldX) * inv2H;
-        else if (neighbourRight)
-            gradX = (neighbourRight->fieldX - fieldX) * invH;
-        else if (neighbourLeft)
-            gradX = (fieldX - neighbourLeft->fieldX) * invH;
-        else
-            gradX = 0.0;
-
-        if (neighbourUp && neighbourDown)
-            gradY = (neighbourUp->fieldY - neighbourDown->fieldY) * inv2H;
-        else if (neighbourUp)
-            gradY = (neighbourUp->fieldY - fieldY) * invH;
-        else if (neighbourDown)
-            gradY = (fieldY - neighbourDown->fieldY) * invH;
-        else
-            gradY = 0.0;
-
-        if (neighbourOut && neighbourIn)
-            gradZ = (neighbourOut->fieldZ - neighbourIn->fieldZ) * inv2H;
-        else if (neighbourOut)
-            gradZ = (neighbourOut->fieldZ - fieldZ) * invH;
-        else if (neighbourIn)
-            gradZ = (fieldZ - neighbourIn->fieldZ) * invH;
-        else
-            gradZ = 0.0;
+        gradXx = (previousFieldXNeighbourRight - previousFieldXNeighbourLeft) * inv2H;
+        gradXy = (previousFieldYNeighbourRight - previousFieldYNeighbourLeft) * inv2H;
+        gradXz = (previousFieldZNeighbourRight - previousFieldZNeighbourLeft) * inv2H;
     }
 
-
-    void calculateDiv()
+    void calculateGradY()
     {
-        double dFx_dx = 0.0, dFy_dy = 0.0, dFz_dz = 0.0;
-
-        if (neighbourRight && neighbourLeft)
-            dFx_dx = (neighbourRight->fieldX - neighbourLeft->fieldX) * inv2H;
-        else if (neighbourRight)
-            dFx_dx = (neighbourRight->fieldX - fieldX) * invH;
-        else if (neighbourLeft)
-            dFx_dx = (fieldX - neighbourLeft->fieldX) * invH;
-
-        if (neighbourUp && neighbourDown)
-            dFy_dy = (neighbourUp->fieldY - neighbourDown->fieldY) * inv2H;
-        else if (neighbourUp)
-            dFy_dy = (neighbourUp->fieldY - fieldY) * invH;
-        else if (neighbourDown)
-            dFy_dy = (fieldY - neighbourDown->fieldY) * invH;
-
-        if (neighbourOut && neighbourIn)
-            dFz_dz = (neighbourOut->fieldZ - neighbourIn->fieldZ) * inv2H;
-        else if (neighbourOut)
-            dFz_dz = (neighbourOut->fieldZ - fieldZ) * invH;
-        else if (neighbourIn)
-            dFz_dz = (fieldZ - neighbourIn->fieldZ) * invH;
-
-        div = dFx_dx + dFy_dy + dFz_dz;
+        gradYx = (previousFieldXNeighbourUp - previousFieldXNeighbourDown) * inv2H;
+        gradYy = (previousFieldYNeighbourUp - previousFieldYNeighbourDown) * inv2H;
+        gradYz = (previousFieldZNeighbourUp - previousFieldZNeighbourDown) * inv2H;
     }
 
-
-    void calculateCurl()
+    void calculateGradZ()
     {
-        double dFz_dy = 0.0, dFy_dz = 0.0, dFx_dz = 0.0, dFz_dx = 0.0, dFy_dx = 0.0, dFx_dy = 0.0;
-
-        if (neighbourUp && neighbourDown)
-            dFz_dy = (neighbourUp->fieldZ - neighbourDown->fieldZ) * inv2H;
-
-        if (neighbourOut && neighbourIn)
-            dFy_dz = (neighbourOut->fieldY - neighbourIn->fieldY) * inv2H;
-
-        if (neighbourOut && neighbourIn)
-            dFx_dz = (neighbourOut->fieldX - neighbourIn->fieldX) * inv2H;
-
-        if (neighbourRight && neighbourLeft)
-            dFz_dx = (neighbourRight->fieldZ - neighbourLeft->fieldZ) * inv2H;
-
-        if (neighbourRight && neighbourLeft)
-            dFy_dx = (neighbourRight->fieldY - neighbourLeft->fieldY) * inv2H;
-
-        if (neighbourUp && neighbourDown)
-            dFx_dy = (neighbourUp->fieldX - neighbourDown->fieldX) * inv2H;
-
-        curlX = dFz_dy - dFy_dz;
-        curlY = dFx_dz - dFz_dx;
-        curlZ = dFy_dx - dFx_dy;
-    }
-
-    void calculateLaplacian()
-    {
-        double sumX =
-            (neighbourRight ? neighbourRight->fieldX : fieldX) +
-            (neighbourLeft ? neighbourLeft->fieldX : fieldX) +
-            (neighbourUp ? neighbourUp->fieldX : fieldX) +
-            (neighbourDown ? neighbourDown->fieldX : fieldX) +
-            (neighbourOut ? neighbourOut->fieldX : fieldX) +
-            (neighbourIn ? neighbourIn->fieldX : fieldX);
-
-        double sumY =
-            (neighbourRight ? neighbourRight->fieldY : fieldY) +
-            (neighbourLeft ? neighbourLeft->fieldY : fieldY) +
-            (neighbourUp ? neighbourUp->fieldY : fieldY) +
-            (neighbourDown ? neighbourDown->fieldY : fieldY) +
-            (neighbourOut ? neighbourOut->fieldY : fieldY) +
-            (neighbourIn ? neighbourIn->fieldY : fieldY);
-
-        double sumZ =
-            (neighbourRight ? neighbourRight->fieldZ : fieldZ) +
-            (neighbourLeft ? neighbourLeft->fieldZ : fieldZ) +
-            (neighbourUp ? neighbourUp->fieldZ : fieldZ) +
-            (neighbourDown ? neighbourDown->fieldZ : fieldZ) +
-            (neighbourOut ? neighbourOut->fieldZ : fieldZ) +
-            (neighbourIn ? neighbourIn->fieldZ : fieldZ);
-
-        /*
-        double sumX =
-            (neighbourRight ? neighbourRight->fieldX : 0) +
-            (neighbourLeft ? neighbourLeft->fieldX : 0) +
-            (neighbourUp ? neighbourUp->fieldX : 0) +
-            (neighbourDown ? neighbourDown->fieldX : 0) +
-            (neighbourOut ? neighbourOut->fieldX : 0) +
-            (neighbourIn ? neighbourIn->fieldX : 0);
-
-        double sumY =
-            (neighbourRight ? neighbourRight->fieldY : 0) +
-            (neighbourLeft ? neighbourLeft->fieldY : 0) +
-            (neighbourUp ? neighbourUp->fieldY : 0) +
-            (neighbourDown ? neighbourDown->fieldY : 0) +
-            (neighbourOut ? neighbourOut->fieldY : 0) +
-            (neighbourIn ? neighbourIn->fieldY : 0);
-
-        double sumZ =
-            (neighbourRight ? neighbourRight->fieldZ : 0) +
-            (neighbourLeft ? neighbourLeft->fieldZ : 0) +
-            (neighbourUp ? neighbourUp->fieldZ : 0) +
-            (neighbourDown ? neighbourDown->fieldZ : 0) +
-            (neighbourOut ? neighbourOut->fieldZ : 0) +
-            (neighbourIn ? neighbourIn->fieldZ : 0);
-            */
-
-        laplacianX = (sumX - 6.0 * fieldX) * invH2;
-        laplacianY = (sumY - 6.0 * fieldY) * invH2;
-        laplacianZ = (sumZ - 6.0 * fieldZ) * invH2;
+        gradZx = (previousFieldXNeighbourOut - previousFieldXNeighbourIn) * inv2H;
+        gradZy = (previousFieldYNeighbourOut - previousFieldYNeighbourIn) * inv2H;
+        gradZz = (previousFieldZNeighbourOut - previousFieldZNeighbourIn) * inv2H;
     }
 
     void calculateddt()
     {
-        d2xdt2 = 0.01 * laplacianX;
-        dydt = 0.01 * laplacianY;
-        dzdt = 0.01 * laplacianZ;
+		dxdt = 0.01 * getLaplacianX();
+        //d2xdt2 = 0.01 * getLaplacianX();
+		// dxdt *= 0.99; 
 	}
 
     void updateField(double deltaTime)

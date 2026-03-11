@@ -1,2 +1,8 @@
 ﻿C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Microsoft\VC\v180\Microsoft.CppBuild.targets(548,5): warning MSB8028: The intermediate directory (Alexandria\x64\Debug\) contains files shared from another project (Project3.vcxproj).  This can lead to incorrect clean and rebuild behavior.
+  Main.cpp
+C:\Users\eight\source\repos\Alexandria\Main.cpp(177,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\eight\source\repos\Alexandria\Main.cpp(178,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\eight\source\repos\Alexandria\Main.cpp(179,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\eight\source\repos\Alexandria\Main.cpp(182,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\eight\source\repos\Alexandria\Main.cpp(213,55): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
   Alexandria.vcxproj -> C:\Users\eight\source\repos\Alexandria\x64\Debug\Alexandria.exe

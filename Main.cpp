@@ -53,7 +53,6 @@ int main()
 
     glViewport(0, 0, 800, 800);
 
-    // Compile shaders
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
@@ -70,7 +69,6 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // Buffers
     unsigned int gridVAO, gridVBO;
     glGenVertexArrays(1, &gridVAO);
     glGenBuffers(1, &gridVBO);
@@ -86,11 +84,9 @@ int main()
 
     glBindVertexArray(0);
 
-    // Timing
     double lastTime = glfwGetTime();
 
-    // Grid setup
-    int resolution = 63;
+    int resolution = 128;
     double spacing = (resolution > 1) ? (2.0 / (resolution - 1)) : 0.0;
 
     std::vector<std::vector<FieldVertex*>> grid(resolution, std::vector<FieldVertex*>(resolution));
@@ -102,63 +98,61 @@ int main()
             double x = -1.0 + j * spacing;
             double y = -1.0 + i * spacing;
 
-            double initFieldX = (x < 0.0 /*&& y == 0.0 */) ? 200.0 : -200.0;
+            double initFieldX = (x > 0.0 && y > 0.0) ? 100.0 : -100;
 
             grid[i][j] = new FieldVertex(x, y, 0.0, spacing, initFieldX, 0.0, 0.0);
         }
     }
 
-    // Neighbours
     for (int i = 0; i < resolution; ++i)
     {
         for (int j = 0; j < resolution; ++j)
         {
             FieldVertex* v = grid[i][j];
 
-            v->neighbourUp = (i + 1 < resolution) ? grid[i + 1][j] : nullptr;
-            v->neighbourDown = (i - 1 >= 0) ? grid[i - 1][j] : nullptr;
-            v->neighbourLeft = (j - 1 >= 0) ? grid[i][j - 1] : nullptr;
-            v->neighbourRight = (j + 1 < resolution) ? grid[i][j + 1] : nullptr;
+			// maps the edges to itsself
+            /*
+            v->neighbourUp = (i + 1 < resolution) ? grid[i + 1][j] : v;
+            v->neighbourDown = (i - 1 >= 0) ? grid[i - 1][j] : v;
+            v->neighbourLeft = (j - 1 >= 0) ? grid[i][j - 1] : v;
+            v->neighbourRight = (j + 1 < resolution) ? grid[i][j + 1] : v;
+            */
 
-            v->neighbourOut = nullptr;
-            v->neighbourIn = nullptr;
+			//maps the edges to the opposite edge, creating a toroidal topology
+            
+            v->neighbourUp = (i + 1 < resolution) ? grid[i + 1][j] : grid[0][j];
+            v->neighbourDown = (i - 1 >= 0) ? grid[i - 1][j] : grid[resolution - 1][j];
+            v->neighbourLeft = (j - 1 >= 0) ? grid[i][j - 1] : grid[i][resolution - 1];
+            v->neighbourRight = (j + 1 < resolution) ? grid[i][j + 1] : grid[i][0];
+            
+            v->neighbourOut = v;
+            v->neighbourIn = v;
+
         }
     }
 
-    // Render loop
     while (!glfwWindowShouldClose(window))
     {
         double currentTime = glfwGetTime();
         double dt = currentTime - lastTime;
         lastTime = currentTime;
 
-        if (dt > 0.25)
-            dt = 0.25; // prevent instability
+        if (dt > 0.01)
+            dt = 0.01; // SUPER DUPER IMPORTANT FOR STABILIY DONT REMOVE PRETTY PLEASE
 
-        // ---- PHYSICS UPDATE (DELTA TIME) ----
         for (int i = 0; i < resolution; ++i)
         {
             for (int j = 0; j < resolution; ++j)
             {
                 FieldVertex* v = grid[i][j];
 
-                v->calculateGrad();
-                v->calculateDiv();
-                v->calculateLaplacian();
                 v->calculateddt();
                 v->updateColour();
 
-                v->fieldX += v->dxdt * dt + 0.5 * v->d2xdt2 * dt * dt;
-                v->fieldY += v->dydt * dt + 0.5 * v->d2ydt2 * dt * dt;
-                v->fieldZ += v->dzdt * dt + 0.5 * v->d2zdt2 * dt * dt;
-
-                v->dxdt += v->d2xdt2 * dt;
-                v->dydt += v->d2ydt2 * dt;
-                v->dzdt += v->d2zdt2 * dt;
+				v->updateField(dt);
             }
         }
 
-        // ---- BUILD MESH ----
         std::vector<float> meshData;
 
         for (int i = 0; i < resolution - 1; ++i)
@@ -190,14 +184,12 @@ int main()
                 float try_ = tly;
                 float z = 0.0f;
 
-                // Triangle 1
                 meshData.insert(meshData.end(), {
                     blx,bly,z, cr,cg,cb,
                     brx,bry,z, cr,cg,cb,
                     tlx,tly,z, cr,cg,cb
                     });
 
-                // Triangle 2
                 meshData.insert(meshData.end(), {
                     brx,bry,z, cr,cg,cb,
                     trx,try_,z, cr,cg,cb,
@@ -206,7 +198,6 @@ int main()
             }
         }
 
-        // ---- RENDER ----
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -225,7 +216,6 @@ int main()
         glfwPollEvents();
     }
 
-    // Cleanup
     for (int i = 0; i < resolution; ++i)
         for (int j = 0; j < resolution; ++j)
             delete grid[i][j];
