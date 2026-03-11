@@ -1,9 +1,0 @@
-﻿  FieldVertex.cpp
-  Main.cpp
-C:\Users\eight\source\repos\Project3\Main.cpp(183,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\Users\eight\source\repos\Project3\Main.cpp(184,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\Users\eight\source\repos\Project3\Main.cpp(185,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\Users\eight\source\repos\Project3\Main.cpp(188,27): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\Users\eight\source\repos\Project3\Main.cpp(222,55): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-  Generating Code...
-  Project3.vcxproj -> C:\Users\eight\source\repos\Project3\x64\Debug\Project3.exe
