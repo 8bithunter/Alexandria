@@ -37,8 +37,7 @@
               "RelativeToolTip": "..\\..\\..\\..\\..\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt\\stddef.h",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAADgAAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-03-11T23:15:39.705Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-11T23:15:39.705Z"
             },
             {
               "$type": "Document",
@@ -50,8 +49,7 @@
               "RelativeToolTip": "glad.c",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAAAqAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
-              "WhenOpened": "2026-03-11T00:56:31.236Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-11T00:56:31.236Z"
             },
             {
               "$type": "Document",
@@ -61,7 +59,7 @@
               "RelativeDocumentMoniker": "Main.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\Main.cpp",
               "RelativeToolTip": "Main.cpp",
-              "ViewState": "AgIAAGYAAAAAAAAAAAAAAH4AAAAMAAAAAAAAAA==",
+              "ViewState": "AgIAAGYAAAAAAAAAAAAAAHAAAAAfAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-03-11T00:56:16.254Z",
               "EditorCaption": ""
@@ -76,8 +74,7 @@
               "RelativeToolTip": "FieldVertex.cpp",
               "ViewState": "AgIAAEYBAAAAAAAAAAAwwGMBAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-03-11T00:56:13.041Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-11T00:56:13.041Z"
             }
           ]
         }
