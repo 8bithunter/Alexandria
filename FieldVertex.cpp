@@ -1,418 +1,180 @@
-using namespace std;
 #include <cmath>
 #include <numbers>
 #include <algorithm>
+#include <cstdint>
 
 class FieldVertex
 {
 private:
-	double x, y, z; // we should never have to look at or change the cords
-	short int red, green, blue, alpha; // we should never have to look at the colours
+    // Grid-space position (fixed after construction)
+    double x, y, z;
 
-	double distanceBetweenVertexes = 1;
+    // Packed colour
+    uint8_t red = 255, green = 255, blue = 255, alpha = 255;
 
-    double gradXx = 0, gradXy = 0, gradXz = 0,
-           gradYx = 0, gradYy = 0, gradYz = 0,
-           gradZx = 0, gradZy = 0, gradZz = 0;
-	double lapX = 0, lapY = 0, lapZ = 0;
+    // Cached spacing reciprocals — computed once from distanceBetweenVertexes
+    // Declaration order matters: distanceBetweenVertexes is listed first so the
+    // default-member-initialisers below see its final value.
+    double distanceBetweenVertexes;
+    double inv2H;   // 0.5 / h  — used by centred-difference gradient
+    double invH2;   // 1 / h²   — used by Laplacian
 
-    double previousFieldX = 0, previousFieldY = 0, previousFieldZ = 0,
-           previousFieldXNeighbourUp = 0, previousFieldYNeighbourUp = 0, previousFieldZNeighbourUp = 0,
-           previousFieldXNeighbourDown = 0, previousFieldYNeighbourDown = 0, previousFieldZNeighbourDown = 0,
-           previousFieldXNeighbourLeft = 0, previousFieldYNeighbourLeft = 0, previousFieldZNeighbourLeft = 0,
-           previousFieldXNeighbourRight = 0, previousFieldYNeighbourRight = 0, previousFieldZNeighbourRight = 0,
-           previousFieldXNeighbourOut = 0, previousFieldYNeighbourOut = 0, previousFieldZNeighbourOut = 0,
-           previousFieldXNeighbourIn= 0, previousFieldYNeighbourIn = 0, previousFieldZNeighbourIn = 0;
-           
+public:
+    // ── Field state ──────────────────────────────────────────────────────────
+    double fieldX = 0, fieldY = 0, fieldZ = 0;
+    double dxdt = 0, dydt = 0, dzdt = 0;
+    double d2xdt2 = 0, d2ydt2 = 0, d2zdt2 = 0;
 
-public:   
-	void setZ(double z) { this->z = z; } // we might want to change z, but not x and y for graphing a 2d thing
-	void setColour(short int r, short int g, short int b, short int a) { red = r; green = g; blue = b; alpha = a; } // we might want to change the color of the vertex, but not its position
-    
-    // Accessor: get color as normalized floats in [0,1]
-    void getColorFloat(float &outR, float &outG, float &outB) const
+    // ── Neighbour pointers ───────────────────────────────────────────────────
+    FieldVertex* neighbourUp, * neighbourDown,
+        * neighbourLeft, * neighbourRight,
+        * neighbourOut, * neighbourIn;
+
+    // ── Constructor ──────────────────────────────────────────────────────────
+    FieldVertex(double x_, double y_, double z_, double d,
+        double fx = 0, double fy = 0, double fz = 0)
+        : x(x_), y(y_), z(z_)
+        , distanceBetweenVertexes(d)
+        , inv2H(0.5 / d)
+        , invH2(1.0 / (d * d))
+        , fieldX(fx), fieldY(fy), fieldZ(fz)
+        , neighbourUp(nullptr), neighbourDown(nullptr)
+        , neighbourLeft(nullptr), neighbourRight(nullptr)
+        , neighbourOut(nullptr), neighbourIn(nullptr)
     {
-        outR = static_cast<float>(red) / 255.0f;
-        outG = static_cast<float>(green) / 255.0f;
-        outB = static_cast<float>(blue) / 255.0f;
     }
 
-    double getGradXx()
-    {
+    // ── Accessors ─────────────────────────────────────────────────────────────
+    void   setZ(double newZ) { z = newZ; }
+    double getZ()       const { return z; }
 
-        if (neighbourLeft->fieldX == previousFieldXNeighbourLeft && neighbourRight->fieldX == previousFieldXNeighbourRight)
-        {
-            return gradXx;
-        }
-        else
-        {
-            previousFieldXNeighbourLeft = neighbourLeft->fieldX;
-            previousFieldXNeighbourRight = neighbourRight->fieldX;
-            previousFieldYNeighbourLeft = neighbourLeft->fieldY;
-            previousFieldYNeighbourRight = neighbourRight->fieldY;
-            previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
-            previousFieldZNeighbourRight = neighbourRight->fieldZ;
-            calculateGradX();
-            return gradXx;
-        }
+    void setColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255)
+    {
+        red = r; green = g; blue = b; alpha = a;
     }
 
-    double getGradXy()
+    void getColorFloat(float& outR, float& outG, float& outB) const
     {
-        if (neighbourLeft->fieldX == previousFieldXNeighbourLeft && neighbourRight->fieldX == previousFieldXNeighbourRight)
-        {
-            return gradXy;
-        }
-        else
-        {
-            previousFieldXNeighbourLeft = neighbourLeft->fieldX;
-            previousFieldXNeighbourRight = neighbourRight->fieldX;
-            previousFieldYNeighbourLeft = neighbourLeft->fieldY;
-            previousFieldYNeighbourRight = neighbourRight->fieldY;
-            previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
-            previousFieldZNeighbourRight = neighbourRight->fieldZ;
-
-            calculateGradX();
-            return gradXy;
-        }
+        constexpr float inv255 = 1.0f / 255.0f;
+        outR = red * inv255;
+        outG = green * inv255;
+        outB = blue * inv255;
     }
 
-    double getGradXz()
-    {
-        if (neighbourLeft->fieldX == previousFieldXNeighbourLeft && neighbourRight->fieldX == previousFieldXNeighbourRight)
-        {
-            return gradXz;
-        }
-        else
-        {
-            previousFieldXNeighbourLeft = neighbourLeft->fieldX;
-            previousFieldXNeighbourRight = neighbourRight->fieldX;
-            previousFieldYNeighbourLeft = neighbourLeft->fieldY;
-            previousFieldYNeighbourRight = neighbourRight->fieldY;
-            previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
-            previousFieldZNeighbourRight = neighbourRight->fieldZ;
+    // ── Differential operators ───────────────────────────────────────────────
+    // All computed directly — no caching.
+    // Each result is a trivial 2-op centred difference; the cache comparisons
+    // (2–7 double equality checks) cost more than just recomputing.
 
-            calculateGradX();
-            return gradXz;
-        }
+    // Gradient of the vector field in the X-grid direction
+    // Returns ∂Fx/∂x, ∂Fy/∂x, ∂Fz/∂x
+    double gradXx() const { return (neighbourRight->fieldX - neighbourLeft->fieldX) * inv2H; }
+    double gradXy() const { return (neighbourRight->fieldY - neighbourLeft->fieldY) * inv2H; }
+    double gradXz() const { return (neighbourRight->fieldZ - neighbourLeft->fieldZ) * inv2H; }
+
+    // Gradient in the Y-grid direction
+    double gradYx() const { return (neighbourUp->fieldX - neighbourDown->fieldX) * inv2H; }
+    double gradYy() const { return (neighbourUp->fieldY - neighbourDown->fieldY) * inv2H; }
+    double gradYz() const { return (neighbourUp->fieldZ - neighbourDown->fieldZ) * inv2H; }
+
+    // Gradient in the Z-grid direction
+    double gradZx() const { return (neighbourOut->fieldX - neighbourIn->fieldX) * inv2H; }
+    double gradZy() const { return (neighbourOut->fieldY - neighbourIn->fieldY) * inv2H; }
+    double gradZz() const { return (neighbourOut->fieldZ - neighbourIn->fieldZ) * inv2H; }
+
+    // Divergence, curl
+    double getDiv()   const { return gradXx() + gradYy() + gradZz(); }
+    double getCurlX() const { return gradYz() - gradZy(); }
+    double getCurlY() const { return gradZx() - gradXz(); }
+    double getCurlZ() const { return gradXy() - gradYx(); }
+
+    // Scalar Laplacians (6-point stencil)
+    double getLaplacianX() const
+    {
+        return (neighbourRight->fieldX + neighbourLeft->fieldX +
+            neighbourUp->fieldX + neighbourDown->fieldX +
+            neighbourOut->fieldX + neighbourIn->fieldX -
+            6.0 * fieldX) * invH2;
     }
 
-    double getGradYx()
+    double getLaplacianY() const
     {
-        if (neighbourDown->fieldX == previousFieldXNeighbourDown && neighbourUp->fieldX == previousFieldXNeighbourUp)
-        {
-            return gradYx;
-        }
-        else
-        {
-            previousFieldXNeighbourDown = neighbourDown->fieldX;
-            previousFieldXNeighbourUp = neighbourUp->fieldX;
-            previousFieldYNeighbourDown = neighbourDown->fieldY;
-            previousFieldYNeighbourUp = neighbourUp->fieldY;
-            previousFieldZNeighbourDown = neighbourDown->fieldZ;
-            previousFieldZNeighbourUp = neighbourUp->fieldZ;
-
-            calculateGradY();
-            return gradYx;
-        }
+        return (neighbourRight->fieldY + neighbourLeft->fieldY +
+            neighbourUp->fieldY + neighbourDown->fieldY +
+            neighbourOut->fieldY + neighbourIn->fieldY -
+            6.0 * fieldY) * invH2;
     }
 
-    double getGradYy()
+    double getLaplacianZ() const
     {
-        if (neighbourDown->fieldX == previousFieldXNeighbourDown && neighbourUp->fieldX == previousFieldXNeighbourUp)
-        {
-            return gradYy;
-        }
-        else
-        {
-            previousFieldXNeighbourDown = neighbourDown->fieldX;
-            previousFieldXNeighbourUp = neighbourUp->fieldX;
-            previousFieldYNeighbourDown = neighbourDown->fieldY;
-            previousFieldYNeighbourUp = neighbourUp->fieldY;
-            previousFieldZNeighbourDown = neighbourDown->fieldZ;
-            previousFieldZNeighbourUp = neighbourUp->fieldZ;
-
-            calculateGradY();
-            return gradYy;
-        }
+        return (neighbourRight->fieldZ + neighbourLeft->fieldZ +
+            neighbourUp->fieldZ + neighbourDown->fieldZ +
+            neighbourOut->fieldZ + neighbourIn->fieldZ -
+            6.0 * fieldZ) * invH2;
     }
 
-    double getGradYz()
-    {
-        if (neighbourDown->fieldX == previousFieldXNeighbourDown && neighbourUp->fieldX == previousFieldXNeighbourUp)
-        {
-            return gradYz;
-        }
-        else
-        {
-            previousFieldXNeighbourDown = neighbourDown->fieldX;
-            previousFieldXNeighbourUp = neighbourUp->fieldX;
-            previousFieldYNeighbourDown = neighbourDown->fieldY;
-            previousFieldYNeighbourUp = neighbourUp->fieldY;
-            previousFieldZNeighbourDown = neighbourDown->fieldZ;
-            previousFieldZNeighbourUp = neighbourUp->fieldZ;
-
-            calculateGradY();
-            return gradYz;
-        }
-    }
-
-    double getGradZx()
-    {
-        if (neighbourIn->fieldX == previousFieldXNeighbourIn && neighbourOut->fieldX == previousFieldXNeighbourOut)
-        {
-            return gradZx;
-        }
-        else
-        {
-            previousFieldXNeighbourIn = neighbourIn->fieldX;
-            previousFieldXNeighbourOut = neighbourOut->fieldX;
-            previousFieldYNeighbourIn = neighbourIn->fieldY;
-            previousFieldYNeighbourOut = neighbourOut->fieldY;
-            previousFieldZNeighbourIn = neighbourIn->fieldZ;
-            previousFieldZNeighbourOut = neighbourOut->fieldZ;
-
-            calculateGradZ();
-            return gradZx;
-        }
-    }
-
-    double getGradZy()
-    {
-        if (neighbourIn->fieldX == previousFieldXNeighbourIn && neighbourOut->fieldX == previousFieldXNeighbourOut)
-        {
-            return gradZy;
-        }
-        else
-        {
-            previousFieldXNeighbourIn = neighbourIn->fieldX;
-            previousFieldXNeighbourOut = neighbourOut->fieldX;
-            previousFieldYNeighbourIn = neighbourIn->fieldY;
-            previousFieldYNeighbourOut = neighbourOut->fieldY;
-            previousFieldZNeighbourIn = neighbourIn->fieldZ;
-            previousFieldZNeighbourOut = neighbourOut->fieldZ;
-
-            calculateGradZ();
-            return gradZy;
-        }
-    }
-
-    double getGradZz()
-    {
-        if (neighbourIn->fieldX == previousFieldXNeighbourIn && neighbourOut->fieldX == previousFieldXNeighbourOut)
-        {
-            return gradZz;
-        }
-        else
-        {
-            previousFieldXNeighbourIn = neighbourIn->fieldX;
-            previousFieldXNeighbourOut = neighbourOut->fieldX;
-            previousFieldYNeighbourIn = neighbourIn->fieldY;
-            previousFieldYNeighbourOut = neighbourOut->fieldY;
-            previousFieldZNeighbourIn = neighbourIn->fieldZ;
-            previousFieldZNeighbourOut = neighbourOut->fieldZ;
-
-            calculateGradZ();
-            return gradZz;
-        }
-    }
-
-	double getDiv() { return getGradXx() + getGradYy() + getGradZz(); }
-
-    double getCurlX() { return getGradYz() - getGradZy(); }
-
-	double getCurlY() { return getGradZx() - getGradXz(); }
-
-	double getCurlZ() { return getGradXy() - getGradYx(); }
-
-    double getLaplacianX()
-    {
-        if (previousFieldXNeighbourRight == neighbourRight->fieldX &&
-            previousFieldXNeighbourLeft == neighbourLeft->fieldX &&
-            previousFieldXNeighbourUp == neighbourUp->fieldX &&
-            previousFieldXNeighbourDown == neighbourDown->fieldX &&
-            previousFieldXNeighbourOut == neighbourOut->fieldX &&
-            previousFieldXNeighbourIn == neighbourIn->fieldX &&
-            previousFieldX == fieldX)
-        {
-            return lapX;  
-        }
-
-        previousFieldXNeighbourRight = neighbourRight->fieldX;
-        previousFieldXNeighbourLeft = neighbourLeft->fieldX;
-        previousFieldXNeighbourUp = neighbourUp->fieldX;
-        previousFieldXNeighbourDown = neighbourDown->fieldX;
-        previousFieldXNeighbourOut = neighbourOut->fieldX;
-        previousFieldXNeighbourIn = neighbourIn->fieldX;
-        previousFieldX = fieldX;
-
-        lapX = (previousFieldXNeighbourRight + previousFieldXNeighbourLeft +
-            previousFieldXNeighbourUp + previousFieldXNeighbourDown +
-            previousFieldXNeighbourOut + previousFieldXNeighbourIn -
-            6.0 * previousFieldX) * invH2;
-
-        return lapX;
-    }
-
-    double getLaplacianY()
-    {
-        if (previousFieldYNeighbourRight == neighbourRight->fieldY &&
-            previousFieldYNeighbourLeft == neighbourLeft->fieldY &&
-            previousFieldYNeighbourUp == neighbourUp->fieldY &&
-            previousFieldYNeighbourDown == neighbourDown->fieldY &&
-            previousFieldYNeighbourOut == neighbourOut->fieldY &&
-            previousFieldYNeighbourIn == neighbourIn->fieldY &&
-            previousFieldY == fieldY)
-        {
-            return lapY;
-        }
-
-        previousFieldYNeighbourRight = neighbourRight->fieldY;
-        previousFieldYNeighbourLeft = neighbourLeft->fieldY;
-        previousFieldYNeighbourUp = neighbourUp->fieldY;
-        previousFieldYNeighbourDown = neighbourDown->fieldY;
-        previousFieldYNeighbourOut = neighbourOut->fieldY;
-        previousFieldYNeighbourIn = neighbourIn->fieldY;
-        previousFieldY = fieldY;
-
-        lapY = (previousFieldYNeighbourRight + previousFieldYNeighbourLeft +
-            previousFieldYNeighbourUp + previousFieldYNeighbourDown +
-            previousFieldYNeighbourOut + previousFieldYNeighbourIn -
-            6.0 * previousFieldY) * invH2;
-
-        return lapY;
-    }
-
-    double getLaplacianZ()
-    {
-        if (previousFieldZNeighbourRight == neighbourRight->fieldZ &&
-            previousFieldZNeighbourLeft == neighbourLeft->fieldZ &&
-            previousFieldZNeighbourUp == neighbourUp->fieldZ &&
-            previousFieldZNeighbourDown == neighbourDown->fieldZ &&
-            previousFieldZNeighbourOut == neighbourOut->fieldZ &&
-            previousFieldZNeighbourIn == neighbourIn->fieldZ &&
-            previousFieldZ == fieldZ)
-        {
-            return lapZ;
-        }
-
-        previousFieldZNeighbourRight = neighbourRight->fieldZ;
-        previousFieldZNeighbourLeft = neighbourLeft->fieldZ;
-        previousFieldZNeighbourUp = neighbourUp->fieldZ;
-        previousFieldZNeighbourDown = neighbourDown->fieldZ;
-        previousFieldZNeighbourOut = neighbourOut->fieldZ;
-        previousFieldZNeighbourIn = neighbourIn->fieldZ;
-        previousFieldZ = fieldZ;
-
-        lapZ = (previousFieldZNeighbourRight + previousFieldZNeighbourLeft +
-            previousFieldZNeighbourUp + previousFieldZNeighbourDown +
-            previousFieldZNeighbourOut + previousFieldZNeighbourIn -
-            6.0 * previousFieldZ) * invH2;
-
-        return lapZ;
-    }
-
-
-	double fieldX = 0, fieldY = 0, fieldZ = 0;
-	double dxdt = 0, dydt = 0, dzdt = 0;
-	double d2xdt2 = 0, d2ydt2 = 0, d2zdt2 = 0;
-
-	FieldVertex(double x, double y, double z, double d, double fx = 0, double fy = 0, double fz = 0)
-		: x(x), y(y), z(z), distanceBetweenVertexes(d),
-		  red(255), green(255), blue(255), alpha(255),
-		  fieldX(fx), fieldY(fy), fieldZ(fz),
-		  neighbourUp(nullptr), neighbourDown(nullptr), neighbourLeft(nullptr), neighbourRight(nullptr), neighbourOut(nullptr), neighbourIn(nullptr)
-	{}
-
-	FieldVertex *neighbourUp, *neighbourDown, *neighbourLeft, *neighbourRight, *neighbourOut, *neighbourIn; // pointers otherwise poopy
-
-    double invH = 1.0 / distanceBetweenVertexes;
-    double inv2H = 0.5 * invH;
-    double invH2 = invH * invH;
-
-    void calculateGradX()
-    {
-        gradXx = (previousFieldXNeighbourRight - previousFieldXNeighbourLeft) * inv2H;
-        gradXy = (previousFieldYNeighbourRight - previousFieldYNeighbourLeft) * inv2H;
-        gradXz = (previousFieldZNeighbourRight - previousFieldZNeighbourLeft) * inv2H;
-    }
-
-    void calculateGradY()
-    {
-        gradYx = (previousFieldXNeighbourUp - previousFieldXNeighbourDown) * inv2H;
-        gradYy = (previousFieldYNeighbourUp - previousFieldYNeighbourDown) * inv2H;
-        gradYz = (previousFieldZNeighbourUp - previousFieldZNeighbourDown) * inv2H;
-    }
-
-    void calculateGradZ()
-    {
-        gradZx = (previousFieldXNeighbourOut - previousFieldXNeighbourIn) * inv2H;
-        gradZy = (previousFieldYNeighbourOut - previousFieldYNeighbourIn) * inv2H;
-        gradZz = (previousFieldZNeighbourOut - previousFieldZNeighbourIn) * inv2H;
-    }
-
+    // ── Simulation step ───────────────────────────────────────────────────────
     void calculateddt()
     {
-		dxdt = 0.01 * getLaplacianX();
-        //d2xdt2 = 0.01 * getLaplacianX();
-		// dxdt *= 0.99; 
-	}
+        //dxdt = 0.001 * getLaplacianX();
 
-    void updateField(double deltaTime)
+		d2xdt2 = 0.001 * getLaplacianX();
+		dxdt *= 0.99;
+
+        // dydt = 0.01 * getLaplacianY();
+        // dzdt = 0.01 * getLaplacianZ();
+    }
+
+    void updateField(double dt)
     {
-        fieldX = fieldX + dxdt * deltaTime + 0.5 * d2xdt2 * deltaTime * deltaTime;
-        fieldY = fieldY + dydt * deltaTime + 0.5 * d2ydt2 * deltaTime * deltaTime;
-        fieldZ = fieldZ + dxdt * deltaTime + 0.5 * d2zdt2 * deltaTime * deltaTime;
+        // Verlet-style integration: x += v*dt + ½a*dt²
+        double dt2 = 0.5 * dt * dt;
+        fieldX += dxdt * dt + d2xdt2 * dt2;
+        fieldY += dydt * dt + d2ydt2 * dt2;
+        fieldZ += dzdt * dt + d2zdt2 * dt2;  
 
-		dxdt = dxdt + d2xdt2 * deltaTime;
-        dydt = dydt + d2ydt2 * deltaTime;
-		dzdt = dzdt + d2zdt2 * deltaTime;
-	}
+        dxdt += d2xdt2 * dt;
+        dydt += d2ydt2 * dt;
+        dzdt += d2zdt2 * dt;
+    }
 
-    void updateColour()
+    // ── Visuals ───────────────────────────────────────────────────────────────
+    // Maps fieldX → hue via atan (smooth saturation for large values),
+    // then drives vertex Z height with the same curve so rotation shows relief.
+    void updateVisuals()
     {
-        // this is ai, so be suspicious
-        
-        // Map temperature (fieldX) to hue, and diffusion speed (|dxdt|) to value (brightness)
-        // Normalize hue in [0,360), use an atan stretch so large values saturate smoothly
-        double hueNorm = (std::atan(fieldX * 0.02) / std::numbers::pi) + 0.5; // maps to [0,1]
-        if (hueNorm < 0.0) hueNorm = 0.0;
-        if (hueNorm > 1.0) hueNorm = 1.0;
-        double hue = hueNorm * 360.0;
+        // atan maps ℝ → (-π/2, π/2); dividing by π gives (-0.5, 0.5); +0.5 → [0,1)
+        double hueNorm = (std::atan(fieldX * 0.02) * (1.0 / std::numbers::pi)) + 0.5;
+        double hue = hueNorm * 360.0;   // [0°, 360°)
 
-        // Map speed to value [0,1] (use abs of dxdt)
-        double speed = std::abs(dxdt);
-        double value = 1; // std::atan(speed * 100.0) / (std::numbers::pi / 2.0); // maps to [0,1)
-        // value = std::clamp(value, 0.0, 1.0);
-
-        double saturation = 1.0; // full saturation
-
-        // HSV -> RGB
-        double c = value * saturation;
-        double hprime = hue / 60.0;
-        double x = c * (1.0 - std::fabs(std::fmod(hprime, 2.0) - 1.0));
-        double r1 = 0.0, g1 = 0.0, b1 = 0.0;
-        int sector = static_cast<int>(std::floor(hprime)) % 6;
+        // Full-brightness, full-saturation HSV → RGB
+        // Avoids std::floor + cast + fmod by using integer truncation directly
+        double hprime = hue * (1.0 / 60.0);
+        int    sector = static_cast<int>(hprime) % 6;
         if (sector < 0) sector += 6;
+        double frac = hprime - static_cast<int>(hprime);  // fractional part
+        double xc = 1.0 - std::fabs(std::fmod(hprime, 2.0) - 1.0);
+
+        double r1, g1, b1;
         switch (sector)
         {
-            case 0: r1 = c; g1 = x; b1 = 0; break;
-            case 1: r1 = x; g1 = c; b1 = 0; break;
-            case 2: r1 = 0; g1 = c; b1 = x; break;
-            case 3: r1 = 0; g1 = x; b1 = c; break;
-            case 4: r1 = x; g1 = 0; b1 = c; break;
-            case 5: r1 = c; g1 = 0; b1 = x; break;
+        case 0: r1 = 1;  g1 = xc; b1 = 0;  break;
+        case 1: r1 = xc; g1 = 1;  b1 = 0;  break;
+        case 2: r1 = 0;  g1 = 1;  b1 = xc; break;
+        case 3: r1 = 0;  g1 = xc; b1 = 1;  break;
+        case 4: r1 = xc; g1 = 0;  b1 = 1;  break;
+        case 5: r1 = 1;  g1 = 0;  b1 = xc; break;
+        default:r1 = 0;  g1 = 0;  b1 = 0;  break;
         }
-        double m = value - c;
-        double rf = r1 + m;
-        double gf = g1 + m;
-        double bf = b1 + m;
 
-        short int R = static_cast<short int>(std::clamp(rf * 255.0, 0.0, 255.0));
-        short int G = static_cast<short int>(std::clamp(gf * 255.0, 0.0, 255.0));
-        short int B = static_cast<short int>(std::clamp(bf * 255.0, 0.0, 255.0));
+        constexpr double scale = 255.0;
+        setColour(
+            static_cast<uint8_t>(std::clamp(r1 * scale, 0.0, 255.0)),
+            static_cast<uint8_t>(std::clamp(g1 * scale, 0.0, 255.0)),
+            static_cast<uint8_t>(std::clamp(b1 * scale, 0.0, 255.0))
+        );
 
-        setColour(R, G, B, 255);
-        setZ(fieldX);
+        // Z height mirrors the hue curve so colour and relief are in sync
+        setZ(hueNorm - 0.5);  // maps to [-0.5, +0.5]
     }
 };

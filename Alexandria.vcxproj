@@ -144,7 +144,9 @@
   <ItemGroup>
     <ClCompile Include="FieldVertex.cpp" />
     <ClCompile Include="glad.c" />
-    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Main3D.cpp" />
+    <ClCompile Include="MainCPU.cpp" />
+    <ClCompile Include="MainGPU.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

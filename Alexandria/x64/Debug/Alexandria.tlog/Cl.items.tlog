@@ -1,3 +1,5 @@
 C:\Users\eight\source\repos\Alexandria\FieldVertex.cpp;C:\Users\eight\source\repos\Alexandria\Alexandria\x64\Debug\FieldVertex.obj
 C:\Users\eight\source\repos\Alexandria\glad.c;C:\Users\eight\source\repos\Alexandria\Alexandria\x64\Debug\glad.obj
-C:\Users\eight\source\repos\Alexandria\Main.cpp;C:\Users\eight\source\repos\Alexandria\Alexandria\x64\Debug\Main.obj
+C:\Users\eight\source\repos\Alexandria\Main3D.cpp;C:\Users\eight\source\repos\Alexandria\Alexandria\x64\Debug\Main3D.obj
+C:\Users\eight\source\repos\Alexandria\MainCPU.cpp;C:\Users\eight\source\repos\Alexandria\Alexandria\x64\Debug\MainCPU.obj
+C:\Users\eight\source\repos\Alexandria\MainGPU.cpp;C:\Users\eight\source\repos\Alexandria\Alexandria\x64\Debug\MainGPU.obj

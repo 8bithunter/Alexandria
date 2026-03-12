@@ -18,10 +18,16 @@
     <ClCompile Include="glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Main.cpp">
+    <ClCompile Include="MainCPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FieldVertex.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MainGPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Main3D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

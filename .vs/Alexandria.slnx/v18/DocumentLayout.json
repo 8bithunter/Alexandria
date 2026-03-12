@@ -3,19 +3,27 @@
   "WorkspaceRootPath": "C:\\Users\\eight\\source\\repos\\Alexandria\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\Main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:Main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\Main3D.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:Main3D.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\PROGRAM FILES (X86)\\WINDOWS KITS\\10\\INCLUDE\\10.0.26100.0\\UCRT\\STDDEF.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\MainCPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainCPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\PROGRAM FILES (X86)\\WINDOWS KITS\\10\\INCLUDE\\10.0.26100.0\\UCRT\\STDDEF.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -25,11 +33,36 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Main3D.cpp",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\Main3D.cpp",
+              "RelativeDocumentMoniker": "Main3D.cpp",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\Main3D.cpp",
+              "RelativeToolTip": "Main3D.cpp",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-03-12T20:06:51.79Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 1,
+              "Title": "MainGPU.cpp",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
+              "RelativeDocumentMoniker": "MainGPU.cpp",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
+              "RelativeToolTip": "MainGPU.cpp",
+              "ViewState": "AgIAAD8BAAAAAAAAAIAwwC8CAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-03-12T19:41:46.642Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
               "Title": "stddef.h",
               "DocumentMoniker": "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt\\stddef.h",
               "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt\\stddef.h",
@@ -41,7 +74,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 4,
               "Title": "glad.c",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c",
               "RelativeDocumentMoniker": "glad.c",
@@ -53,26 +86,25 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "Main.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\Main.cpp",
-              "RelativeDocumentMoniker": "Main.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\Main.cpp",
-              "RelativeToolTip": "Main.cpp",
-              "ViewState": "AgIAAGYAAAAAAAAAAAAAAHAAAAAfAAAAAAAAAA==",
+              "DocumentIndex": 3,
+              "Title": "MainCPU.cpp",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainCPU.cpp",
+              "RelativeDocumentMoniker": "MainCPU.cpp",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainCPU.cpp",
+              "RelativeToolTip": "MainCPU.cpp",
+              "ViewState": "AgIAAIMAAAAAAAAAAAAwwCEBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-03-11T00:56:16.254Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-11T00:56:16.254Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 2,
               "Title": "FieldVertex.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp",
               "RelativeDocumentMoniker": "FieldVertex.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp",
               "RelativeToolTip": "FieldVertex.cpp",
-              "ViewState": "AgIAAEYBAAAAAAAAAAAwwGMBAAACAAAAAAAAAA==",
+              "ViewState": "AgIAAGMAAAAAAAAAAAAAAIUAAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-03-11T00:56:13.041Z"
             }
