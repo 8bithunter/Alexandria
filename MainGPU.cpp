@@ -178,7 +178,7 @@ out vec3 vColor;
 
 vec3 fieldToColor(float f)
 {
-    float h  = atan(f*0.02)/3.14159265 + 0.5;
+    float h  = atan(-f*0.02)/3.14159265 + 0.5;
     float hp = h * 6.0;
     float xc = 1.0 - abs(mod(hp, 2.0) - 1.0);
     int   s  = int(hp) % 6;
@@ -209,30 +209,23 @@ void main() { FragColor = vec4(vColor, 1.0); }
 
 // =============================================================================
 // Text overlay shaders  (instanced bitmap font)
-//
-// One instance = one character.
-// gl_InstanceID selects the character position in the string.
-// Each character is a unit quad [0,1]×[0,1] stretched to NDC.
-// The fragment shader looks up the glyph bitmap and discards unlit pixels.
 // =============================================================================
 static const char* textVertSrc = R"GLSL(
 #version 430 core
 layout(location = 0) in vec2 aPos;     // [0,1]x[0,1] unit quad
 
-uniform vec2  uOrigin;      // NDC position of the top-left of the first char
-uniform vec2  uCharSize;    // NDC width, height of one character cell
-uniform float uAdvance;     // NDC x-step between character cells
-uniform uint  uFont[13];    // glyph bitmaps, indexed by glyph id
-uniform uint  uChars[16];   // glyph id for each character in the string
+uniform vec2  uOrigin;
+uniform vec2  uCharSize;
+uniform float uAdvance;
+uniform uint  uFont[13];
+uniform uint  uChars[16];
 
 out vec2 vUV;
 flat out uint vGlyph;
 
 void main()
 {
-    // Move the quad to the correct character cell
     vec2 cellOrigin = uOrigin + vec2(float(gl_InstanceID) * uAdvance, 0.0);
-    // NDC: x increases right, y increases up — so subtract v to go downward
     vec2 ndcPos = cellOrigin + vec2(aPos.x * uCharSize.x, -aPos.y * uCharSize.y);
     gl_Position = vec4(ndcPos, 0.0, 1.0);
     vUV    = aPos;
@@ -249,7 +242,6 @@ out vec4 FragColor;
 
 void main()
 {
-    // 4-wide x 6-tall font. bit = row*4 + col, col 0 = leftmost.
     int col = clamp(int(vUV.x * 4.0), 0, 3);
     int row = clamp(int(vUV.y * 6.0), 0, 5);
     if (((vGlyph >> uint(row*4 + col)) & 1u) == 0u) discard;
@@ -258,13 +250,13 @@ void main()
 )GLSL";
 
 // =============================================================================
-// Solid 2D rect shader  (used for the dark background behind the timer text)
+// Solid 2D rect shader
 // =============================================================================
 static const char* rectVertSrc = R"GLSL(
 #version 430 core
-layout(location = 0) in vec2 aPos;     // [0,1]x[0,1]
-uniform vec2 uRectOrigin;   // NDC top-left of rect
-uniform vec2 uRectSize;     // NDC width, height (positive)
+layout(location = 0) in vec2 aPos;
+uniform vec2 uRectOrigin;
+uniform vec2 uRectSize;
 void main()
 {
     vec2 p = uRectOrigin + vec2(aPos.x * uRectSize.x, -aPos.y * uRectSize.y);
@@ -289,20 +281,46 @@ struct RotationState {
 };
 static RotationState rot;
 
+// =============================================================================
+// Heat brush state  (left-click and hold to inject heat at the cursor)
+// =============================================================================
+struct HeatState {
+    bool   active = false;
+    double x = 0, y = 0;   // cursor position in window pixels
+};
+static HeatState heat;
+
+// =============================================================================
+// Pause state  (space bar toggles)
+// =============================================================================
+static bool paused = false;
+
+static void keyCallback(GLFWwindow*, int key, int, int action, int)
+{
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+        paused = !paused;
+}
+
 static void mouseButtonCallback(GLFWwindow* w, int button, int action, int)
 {
     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
         rot.dragging = (action == GLFW_PRESS);
         if (rot.dragging) glfwGetCursorPos(w, &rot.lastX, &rot.lastY);
     }
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        heat.active = (action == GLFW_PRESS);
+    }
 }
 static void cursorPosCallback(GLFWwindow*, double x, double y)
 {
-    if (!rot.dragging) return;
-    rot.yaw += float(x - rot.lastX) * rot.sensitivity;
-    rot.pitch += float(y - rot.lastY) * rot.sensitivity;
-    rot.pitch = std::clamp(rot.pitch, -1.5707963f, 1.5707963f);
-    rot.lastX = x; rot.lastY = y;
+    if (rot.dragging) {
+        rot.yaw += float(x - rot.lastX) * rot.sensitivity;
+        rot.pitch += float(y - rot.lastY) * rot.sensitivity;
+        rot.pitch = std::clamp(rot.pitch, -1.5707963f, 1.5707963f);
+        rot.lastX = x; rot.lastY = y;
+    }
+    // Always track so the heat brush follows the cursor while held
+    heat.x = x; heat.y = -y + 800;
 }
 static void buildRotationMatrix(float yaw, float pitch, float* m)
 {
@@ -351,6 +369,7 @@ int main()
     if (!window) { glfwTerminate(); return -1; }
 
     glfwMakeContextCurrent(window);
+    glfwSetKeyCallback(window, keyCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
 
@@ -404,7 +423,7 @@ int main()
     for (int i = 0; i < N; ++i)
         for (int j = 0; j < N; ++j) {
             float x = -1.0f + j * h, y = -1.0f + i * h;
-            initBuf[(i * N + j) * STRIDE] = (x > 0.0f && y > 0.0f) ? 100.0f : -100.0f;
+            initBuf[(i * N + j) * STRIDE] = (x > 0.0f && y > 0.0f) ? 0 : 0;
         }
 
     unsigned int ssbo[2];
@@ -446,7 +465,6 @@ int main()
     glBindVertexArray(0);
 
     // ── Shared unit quad VAO  [0,1]×[0,1]  ───────────────────────────────────
-    // Used by both the text overlay and the background rect.
     float quadVerts[] = {
         0.0f,0.0f, 1.0f,0.0f, 0.0f,1.0f,
         1.0f,0.0f, 1.0f,1.0f, 0.0f,1.0f
@@ -462,16 +480,12 @@ int main()
     glBindVertexArray(0);
 
     // ── Timer layout constants ─────────────────────────────────────────────────
-    // Each font pixel = 5 screen pixels.
-    // Character cell = 4×5px font pixels = 20×30 screen pixels.
-    // NDC unit = 2/800 = 0.0025 per screen pixel.
-    const float PX = 2.0f / 800.0f;   // 1 screen pixel in NDC
-    const float CHAR_W = 20.0f * PX;       // NDC width of one character cell
-    const float CHAR_H = 30.0f * PX;       // NDC height
-    const float CHAR_ADV = 22.0f * PX;       // x advance (cell + 2px gap)
-    const float MARGIN = 12.0f * PX;       // padding from window edge
-    const float PAD = 6.0f * PX;       // padding inside background box
-    // Top-left corner of the first character in NDC (origin = top-left = (-1, 1))
+    const float PX = 2.0f / 800.0f;
+    const float CHAR_W = 20.0f * PX;
+    const float CHAR_H = 30.0f * PX;
+    const float CHAR_ADV = 22.0f * PX;
+    const float MARGIN = 12.0f * PX;
+    const float PAD = 6.0f * PX;
     const float TEXT_X = -1.0f + MARGIN;
     const float TEXT_Y = 1.0f - MARGIN;
 
@@ -481,27 +495,53 @@ int main()
     double      lastTime = glfwGetTime();
     float       rotMat[16];
 
+    // Heat brush: radius in grid cells, value to inject
+    const int   HEAT_RADIUS = 5;
+    const float HEAT_VALUE = 100.0f;
+
     while (!glfwWindowShouldClose(window))
     {
-        lastTime = glfwGetTime();   // we use fixed substepDt, not wall dt
+        lastTime = glfwGetTime();
 
-        // ── Compute pass: CFL-limited substeps ────────────────────────────────
-        glUseProgram(computeProg);
-        glUniform1i(uRes, N);
-        glUniform1f(uInvH2u, invH2);
-        glUniform1f(uDiffusion, DIFFUSION);
-        glUniform1f(uDt, subDt);
-
-        for (int step = 0; step < substeps; ++step) {
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
-            glDispatchCompute(groups, groups, 1);
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-            current = 1 - current;
+        // ── Heat brush injection ───────────────────────────────────────────────
+        // Left-click and hold writes HEAT_VALUE into a circular region of cells.
+        // Writes go into ssbo[current] so the next compute step picks them up.
+        // Works whether paused or not.
+        if (heat.active) {
+            int cx = (int)(heat.x / 800.0 * N);
+            int cy = (int)(heat.y / 800.0 * N);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
+            for (int dy = -HEAT_RADIUS; dy <= HEAT_RADIUS; ++dy) {
+                for (int dx = -HEAT_RADIUS; dx <= HEAT_RADIUS; ++dx) {
+                    if (dx * dx + dy * dy > HEAT_RADIUS * HEAT_RADIUS) continue;
+                    int gi = cy + dy, gj = cx + dx;
+                    if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
+                    // FX is component 0 of each cell's STRIDE-wide record
+                    GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
+                    glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &HEAT_VALUE);
+                }
+            }
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
 
-        // Advance simulation clock by exactly what we stepped
-        simTime += subDt * static_cast<float>(substeps);
+        // ── Compute pass: CFL-limited substeps (skipped when paused) ──────────
+        if (!paused) {
+            glUseProgram(computeProg);
+            glUniform1i(uRes, N);
+            glUniform1f(uInvH2u, invH2);
+            glUniform1f(uDiffusion, DIFFUSION);
+            glUniform1f(uDt, subDt);
+
+            for (int step = 0; step < substeps; ++step) {
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+                glDispatchCompute(groups, groups, 1);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                current = 1 - current;
+            }
+
+            simTime += subDt * static_cast<float>(substeps);
+        }
 
         // ── Field render pass ─────────────────────────────────────────────────
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -516,20 +556,14 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh.size()));
 
         // ── Text overlay pass ─────────────────────────────────────────────────
-        // Disable depth test so text always draws on top.
-        // Enable blending for the semi-transparent background box.
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        // Format simulation time into glyph indices
         uint32_t charBuf[16];
         int numChars = formatSimTime(simTime, charBuf, 16);
-
-        // Width of the full text string in NDC
         float textW = CHAR_W + (numChars - 1) * CHAR_ADV;
 
-        // 1. Draw dark semi-transparent background rectangle behind the text
         glUseProgram(rectProg);
         glUniform2f(uRectOrigin, TEXT_X - PAD, TEXT_Y + PAD);
         glUniform2f(uRectSize, textW + 2.0f * PAD, CHAR_H + 2.0f * PAD);
@@ -537,7 +571,6 @@ int main()
         glBindVertexArray(quadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // 2. Draw white text on top
         glUseProgram(textProg);
         glUniform2f(uTxtOrigin, TEXT_X, TEXT_Y);
         glUniform2f(uTxtSize, CHAR_W, CHAR_H);
