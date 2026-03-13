@@ -349,6 +349,7 @@ static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 // =============================================================================
 // main
 // =============================================================================
+/*
 int main()
 {
     if (!glfwInit()) return -1;
@@ -575,3 +576,4 @@ int main()
     glfwTerminate();
     return 0;
 }
+*/

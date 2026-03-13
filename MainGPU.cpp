@@ -11,8 +11,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-static constexpr int   RES = 512;
-static constexpr float DIFFUSION = 0.01f;
+static constexpr int   RES = 256;
+static constexpr float DIFFUSION = 0.001f;
 
 // =============================================================================
 // Bitmap font  (4 wide × 6 tall = 24 bits per glyph, packed into uint32_t)
@@ -135,24 +135,29 @@ void main()
 {
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
     if (id.x >= uRes || id.y >= uRes) return;
-
     int c = id.y*uRes + id.x;
     int r = id.y*uRes + (id.x+1) % uRes;
     int l = id.y*uRes + (id.x-1+uRes) % uRes;
     int u = ((id.y+1) % uRes)*uRes + id.x;
     int d = ((id.y-1+uRes) % uRes)*uRes + id.x;
 
-    float ax=get(c,AX), ay=get(c,AY), az=get(c,AZ);
-    float dt2 = 0.5*uDt*uDt;
+    float ax = 0;
+    float ay = 0;
+    float az = 0;
 
     float vx = uDiffusion * laplacian(r,l,u,d,c,FX);
     float vy = uDiffusion * laplacian(r,l,u,d,c,FY);
     float vz = uDiffusion * laplacian(r,l,u,d,c,FZ);
 
+    // Velocity accumulates from acceleration (symplectic Euler)
+    // float vx = get(c,VX) + ax * uDt;
+    // float vy = get(c,VY) + ay * uDt;
+    // float vz = get(c,VZ) + az * uDt;
+
     int base = c * STRIDE;
-    outData[base+FX] = get(c,FX) + vx*uDt + ax*dt2;
-    outData[base+FY] = get(c,FY) + vy*uDt + ay*dt2;
-    outData[base+FZ] = get(c,FZ) + vz*uDt + az*dt2;
+    outData[base+FX] = get(c,FX) + vx*uDt;
+    outData[base+FY] = get(c,FY) + vy*uDt;
+    outData[base+FZ] = get(c,FZ) + vz*uDt;
     outData[base+VX] = vx;  outData[base+VY] = vy;  outData[base+VZ] = vz;
     outData[base+AX] = ax;  outData[base+AY] = ay;  outData[base+AZ] = az;
     outData[base+9]  = 0.0;
@@ -334,7 +339,7 @@ static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 // =============================================================================
 // main
 // =============================================================================
-/*
+
 int main()
 {
     if (!glfwInit()) return -1;
@@ -557,4 +562,3 @@ int main()
     glfwTerminate();
     return 0;
 }
-*/
