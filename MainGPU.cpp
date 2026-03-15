@@ -16,56 +16,22 @@ static constexpr float DIFFUSION = 0.001f;
 
 // =============================================================================
 // Bitmap font  (4 wide × 6 tall = 24 bits per glyph, packed into uint32_t)
-//
-// Bit layout: bit = row*4 + col   (row 0 = top, col 0 = left)
-// Nibble N covers row N (bits N*4 .. N*4+3).
-//
-// To read: given (col, row) → bit = row*4+col → (glyph >> bit) & 1
-//
-// Characters and their indices:
-//   0-9  digits
-//   10   '.'
-//   11   's'
-//   12   ' '
-//
-// Encoding helper — for each row write the 4-bit pattern as a hex nibble,
-// then pack: glyph = row0 | (row1<<4) | (row2<<8) | (row3<<12) | (row4<<16) | (row5<<20)
-//
-// Pixel key: col0=LSB, col3=MSB   e.g. .##. = 0110 = 6
-//   .... = 0x0   #... = 0x1   .#.. = 0x2   ##.. = 0x3
-//   ..#. = 0x4   #.#. = 0x5   .##. = 0x6   ###. = 0x7
-//   ...# = 0x8   #..# = 0x9   .#.# = 0xA   ##.# = 0xB
-//   ..## = 0xC   #.## = 0xD   .### = 0xE   #### = 0xF
 // =============================================================================
 // clang-format off
-//                      row0  row1  row2  row3  row4  row5
 static const uint32_t FONT[] = {
-    // '0'  .##. #..# #..# #..# #..# .##.
     0x6 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x9 << 16) | (0x6 << 20),  // 0
-    // '1'  .#.. ##.. .#.. .#.. .#.. .###
     0x2 | (0x3 << 4) | (0x2 << 8) | (0x2 << 12) | (0x2 << 16) | (0xE << 20),  // 1
-    // '2'  ###. ...# .##. #... #... ####
     0x7 | (0x8 << 4) | (0x6 << 8) | (0x1 << 12) | (0x1 << 16) | (0xF << 20),  // 2
-    // '3'  ###. ...# .##. ...# ...# ###.
     0x7 | (0x8 << 4) | (0x6 << 8) | (0x8 << 12) | (0x8 << 16) | (0x7 << 20),  // 3
-    // '4'  #..# #..# #### ...# ...# ...#
     0x9 | (0x9 << 4) | (0xF << 8) | (0x8 << 12) | (0x8 << 16) | (0x8 << 20),  // 4
-    // '5'  #### #... ###. ...# ...# ###.
     0xF | (0x1 << 4) | (0x7 << 8) | (0x8 << 12) | (0x8 << 16) | (0x7 << 20),  // 5
-    // '6'  .##. #... ###. #..# #..# .##.
     0x6 | (0x1 << 4) | (0x7 << 8) | (0x9 << 12) | (0x9 << 16) | (0x6 << 20),  // 6
-    // '7'  #### ...# ..#. .#.. .#.. .#..
     0xF | (0x8 << 4) | (0x4 << 8) | (0x2 << 12) | (0x2 << 16) | (0x2 << 20),  // 7
-    // '8'  .##. #..# .##. #..# #..# .##.
     0x6 | (0x9 << 4) | (0x6 << 8) | (0x9 << 12) | (0x9 << 16) | (0x6 << 20),  // 8
-    // '9'  .##. #..# .### ...# ...# .##.
     0x6 | (0x9 << 4) | (0xE << 8) | (0x8 << 12) | (0x8 << 16) | (0x6 << 20),  // 9
-    // '.'  .... .... .... .... .#.. ....
-    0x0 | (0x0 << 4) | (0x0 << 8) | (0x0 << 12) | (0x2 << 16) | (0x0 << 20),  // 10
-    // 's'  .### #... .##. ...# ...# ###.
-    0xE | (0x1 << 4) | (0x6 << 8) | (0x8 << 12) | (0x8 << 16) | (0x7 << 20),  // 11
-    // ' '  (space)
-    0x0,                                                               // 12
+    0x0 | (0x0 << 4) | (0x0 << 8) | (0x0 << 12) | (0x2 << 16) | (0x0 << 20),  // 10 '.'
+    0xE | (0x1 << 4) | (0x6 << 8) | (0x8 << 12) | (0x8 << 16) | (0x7 << 20),  // 11 's'
+    0x0,                                                                          // 12 ' '
 };
 // clang-format on
 static constexpr int GLYPH_DOT = 10;
@@ -73,15 +39,12 @@ static constexpr int GLYPH_S = 11;
 static constexpr int GLYPH_SPACE = 12;
 static constexpr int FONT_COUNT = 13;
 
-// Converts sim time (seconds) into a glyph-index sequence, e.g. "42.7s"
-// Returns the number of characters written into out[].
 static int formatSimTime(float t, uint32_t* out, int maxOut)
 {
     if (t < 0.0f) t = 0.0f;
     int intPart = static_cast<int>(t);
     int frac = static_cast<int>(t * 10.0f) % 10;
 
-    // collect integer digits, most-significant-first
     uint32_t digits[8]; int nd = 0;
     if (intPart == 0) { digits[nd++] = 0; }
     else {
@@ -99,7 +62,7 @@ static int formatSimTime(float t, uint32_t* out, int maxOut)
 }
 
 // =============================================================================
-// Compute shader — full 3-component diffusion, CFL-stable dt from CPU
+// Compute shader
 // =============================================================================
 static const char* computeSrc = R"GLSL(
 #version 430 core
@@ -141,18 +104,21 @@ void main()
     int u = ((id.y+1) % uRes)*uRes + id.x;
     int d = ((id.y-1+uRes) % uRes)*uRes + id.x;
 
-    float ax = 0;
-    float ay = 0;
-    float az = 0;
+    float ax = 0, ay = 0, az = 0;
+    float vx = 0, vy = 0, vz = 0;
 
-    float vx = uDiffusion * laplacian(r,l,u,d,c,FX);
-    float vy = uDiffusion * laplacian(r,l,u,d,c,FY);
-    float vz = uDiffusion * laplacian(r,l,u,d,c,FZ);
+    // for diffusion
+    // vx = uDiffusion * laplacian(r,l,u,d,c,FX);
+    // vy = uDiffusion * laplacian(r,l,u,d,c,FX);
+    // vz = uDiffusion * laplacian(r,l,u,d,c,FX);
 
-    // Velocity accumulates from acceleration (symplectic Euler)
-    // float vx = get(c,VX) + ax * uDt;
-    // float vy = get(c,VY) + ay * uDt;
-    // float vz = get(c,VZ) + az * uDt;
+    // for waves 
+    ax = uDiffusion * laplacian(r,l,u,d,c,FX);
+    ay = uDiffusion * laplacian(r,l,u,d,c,FY);
+    az = uDiffusion * laplacian(r,l,u,d,c,FZ);
+    vx = get(c,VX) + ax * uDt;
+    vy = get(c,VY) + ay * uDt;
+    vz = get(c,VZ) + az * uDt;
 
     int base = c * STRIDE;
     outData[base+FX] = get(c,FX) + vx*uDt;
@@ -208,11 +174,11 @@ void main() { FragColor = vec4(vColor, 1.0); }
 )GLSL";
 
 // =============================================================================
-// Text overlay shaders  (instanced bitmap font)
+// Text overlay shaders
 // =============================================================================
 static const char* textVertSrc = R"GLSL(
 #version 430 core
-layout(location = 0) in vec2 aPos;     // [0,1]x[0,1] unit quad
+layout(location = 0) in vec2 aPos;
 
 uniform vec2  uOrigin;
 uniform vec2  uCharSize;
@@ -282,23 +248,53 @@ struct RotationState {
 static RotationState rot;
 
 // =============================================================================
-// Heat brush state  (left-click and hold to inject heat at the cursor)
+// Heat brush state
 // =============================================================================
 struct HeatState {
     bool   active = false;
-    double x = 0, y = 0;   // cursor position in window pixels
+    double x = 0, y = 0;
 };
 static HeatState heat;
 
 // =============================================================================
-// Pause state  (space bar toggles)
+// Mutable brush parameters (scroll-wheel controlled)
+// =============================================================================
+static float heatValue = 100.0f;   // scroll up/down changes this
+static int   heatRadius = 5;        // shift+scroll changes this
+
+// =============================================================================
+// Pause / reset state
 // =============================================================================
 static bool paused = false;
+static bool resetRequested = false;   // set by R key, consumed in main loop
 
+// =============================================================================
+// Callbacks
+// =============================================================================
 static void keyCallback(GLFWwindow*, int key, int, int action, int)
 {
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
         paused = !paused;
+
+    // R — request a full field reset to zero
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+        resetRequested = true;
+}
+
+static void scrollCallback(GLFWwindow* w, double /*xoff*/, double yoff)
+{
+    // Shift held → adjust brush radius; otherwise adjust temperature
+    bool shiftHeld = (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+        glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+
+    if (shiftHeld) {
+        heatRadius = std::clamp(heatRadius + (int)(yoff > 0 ? 1 : -1), 1, 64);
+        std::cout << "Brush radius: " << heatRadius << "\n";
+    }
+    else {
+        heatValue = std::clamp(heatValue + (float)yoff * 10.0f, 1.0f, 5000.0f);
+        std::cout << "Heat value: " << heatValue << "\n";
+    }
 }
 
 static void mouseButtonCallback(GLFWwindow* w, int button, int action, int)
@@ -307,10 +303,10 @@ static void mouseButtonCallback(GLFWwindow* w, int button, int action, int)
         rot.dragging = (action == GLFW_PRESS);
         if (rot.dragging) glfwGetCursorPos(w, &rot.lastX, &rot.lastY);
     }
-    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
         heat.active = (action == GLFW_PRESS);
-    }
 }
+
 static void cursorPosCallback(GLFWwindow*, double x, double y)
 {
     if (rot.dragging) {
@@ -319,16 +315,16 @@ static void cursorPosCallback(GLFWwindow*, double x, double y)
         rot.pitch = std::clamp(rot.pitch, -1.5707963f, 1.5707963f);
         rot.lastX = x; rot.lastY = y;
     }
-    // Always track so the heat brush follows the cursor while held
     heat.x = x; heat.y = -y + 800;
 }
+
 static void buildRotationMatrix(float yaw, float pitch, float* m)
 {
     float cy = cosf(yaw), sy = sinf(yaw), cx = cosf(pitch), sx = sinf(pitch);
-    m[0] = cy;    m[1] = 0;   m[2] = -sy;    m[3] = 0;
-    m[4] = sy * sx; m[5] = cx;  m[6] = cy * sx;  m[7] = 0;
-    m[8] = sy * cx; m[9] = -sx; m[10] = cy * cx; m[11] = 0;
-    m[12] = 0;    m[13] = 0;  m[14] = 0;     m[15] = 1;
+    m[0] = cy;     m[1] = 0;   m[2] = -sy;    m[3] = 0;
+    m[4] = sy * sx;  m[5] = cx;  m[6] = cy * sx;  m[7] = 0;
+    m[8] = sy * cx;  m[9] = -sx; m[10] = cy * cx; m[11] = 0;
+    m[12] = 0;     m[13] = 0;  m[14] = 0;     m[15] = 1;
 }
 
 // =============================================================================
@@ -343,6 +339,7 @@ static unsigned int compileShader(GLenum type, const char* src)
     if (!ok) { char log[1024]; glGetShaderInfoLog(s, 1024, nullptr, log); std::cerr << log << "\n"; }
     return s;
 }
+
 static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 {
     unsigned int p = glCreateProgram();
@@ -357,7 +354,6 @@ static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 // =============================================================================
 // main
 // =============================================================================
-
 int main()
 {
     if (!glfwInit()) return -1;
@@ -370,6 +366,7 @@ int main()
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, keyCallback);
+    glfwSetScrollCallback(window, scrollCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
 
@@ -388,7 +385,6 @@ int main()
     unsigned int rectProg = makeProgram({ compileShader(GL_VERTEX_SHADER,   rectVertSrc),
                                              compileShader(GL_FRAGMENT_SHADER, rectFragSrc) });
 
-    // Cache uniform locations
     int uRes = glGetUniformLocation(computeProg, "uRes");
     int uInvH2u = glGetUniformLocation(computeProg, "uInvH2");
     int uDiffusion = glGetUniformLocation(computeProg, "uDiffusion");
@@ -416,23 +412,25 @@ int main()
     std::cout << "Resolution: " << N << "x" << N
         << "  substeps/frame: " << substeps
         << "  subDt: " << subDt << "\n";
+    std::cout << "Controls:\n"
+        << "  Left-click+drag  — paint heat\n"
+        << "  Scroll           — change heat temperature (current: " << heatValue << ")\n"
+        << "  Shift+Scroll     — change brush radius (current: " << heatRadius << ")\n"
+        << "  Right-click+drag — rotate view\n"
+        << "  Space            — pause/resume\n"
+        << "  R                — reset field to zero\n";
 
     // ── Field SSBOs ───────────────────────────────────────────────────────────
     const int STRIDE = 10;
-    std::vector<float> initBuf(N * N * STRIDE, 0.0f);
-    for (int i = 0; i < N; ++i)
-        for (int j = 0; j < N; ++j) {
-            float x = -1.0f + j * h, y = -1.0f + i * h;
-            initBuf[(i * N + j) * STRIDE] = (x > 0.0f && y > 0.0f) ? 0 : 0;
-        }
+    std::vector<float> zeroBuf(N * N * STRIDE, 0.0f);
 
     unsigned int ssbo[2];
     glGenBuffers(2, ssbo);
     for (int b = 0; b < 2; ++b) {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[b]);
         glBufferData(GL_SHADER_STORAGE_BUFFER,
-            initBuf.size() * sizeof(float),
-            b == 0 ? initBuf.data() : nullptr,
+            zeroBuf.size() * sizeof(float),
+            b == 0 ? zeroBuf.data() : nullptr,
             GL_DYNAMIC_COPY);
     }
 
@@ -464,7 +462,7 @@ int main()
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
 
-    // ── Shared unit quad VAO  [0,1]×[0,1]  ───────────────────────────────────
+    // ── Shared unit quad VAO ──────────────────────────────────────────────────
     float quadVerts[] = {
         0.0f,0.0f, 1.0f,0.0f, 0.0f,1.0f,
         1.0f,0.0f, 1.0f,1.0f, 0.0f,1.0f
@@ -479,7 +477,7 @@ int main()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
-    // ── Timer layout constants ─────────────────────────────────────────────────
+    // ── Timer layout constants ────────────────────────────────────────────────
     const float PX = 2.0f / 800.0f;
     const float CHAR_W = 20.0f * PX;
     const float CHAR_H = 30.0f * PX;
@@ -489,42 +487,48 @@ int main()
     const float TEXT_X = -1.0f + MARGIN;
     const float TEXT_Y = 1.0f - MARGIN;
 
-    const int   groups = (N + 15) / 16;
-    int         current = 0;
-    float       simTime = 0.0f;
-    double      lastTime = glfwGetTime();
-    float       rotMat[16];
-
-    // Heat brush: radius in grid cells, value to inject
-    const int   HEAT_RADIUS = 5;
-    const float HEAT_VALUE = 100.0f;
+    const int groups = (N + 15) / 16;
+    int       current = 0;
+    float     simTime = 0.0f;
+    double    lastTime = glfwGetTime();
+    float     rotMat[16];
 
     while (!glfwWindowShouldClose(window))
     {
         lastTime = glfwGetTime();
 
-        // ── Heat brush injection ───────────────────────────────────────────────
-        // Left-click and hold writes HEAT_VALUE into a circular region of cells.
-        // Writes go into ssbo[current] so the next compute step picks them up.
-        // Works whether paused or not.
+        // ── Reset field to zero (R key) ───────────────────────────────────────
+        if (resetRequested) {
+            resetRequested = false;
+            simTime = 0.0f;
+            current = 0;
+            // Zero both SSBOs so no stale data lingers in the ping-pong buffer
+            for (int b = 0; b < 2; ++b) {
+                glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[b]);
+                glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F,
+                    GL_RED, GL_FLOAT, nullptr);   // fills with 0
+            }
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        }
+
+        // ── Heat brush injection ──────────────────────────────────────────────
         if (heat.active) {
             int cx = (int)(heat.x / 800.0 * N);
             int cy = (int)(heat.y / 800.0 * N);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
-            for (int dy = -HEAT_RADIUS; dy <= HEAT_RADIUS; ++dy) {
-                for (int dx = -HEAT_RADIUS; dx <= HEAT_RADIUS; ++dx) {
-                    if (dx * dx + dy * dy > HEAT_RADIUS * HEAT_RADIUS) continue;
+            for (int dy = -heatRadius; dy <= heatRadius; ++dy) {
+                for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
+                    if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
                     int gi = cy + dy, gj = cx + dx;
                     if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
-                    // FX is component 0 of each cell's STRIDE-wide record
                     GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
-                    glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &HEAT_VALUE);
+                    glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &heatValue);
                 }
             }
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
 
-        // ── Compute pass: CFL-limited substeps (skipped when paused) ──────────
+        // ── Compute pass: CFL-limited substeps ────────────────────────────────
         if (!paused) {
             glUseProgram(computeProg);
             glUniform1i(uRes, N);
@@ -588,10 +592,10 @@ int main()
     }
 
     glDeleteBuffers(2, ssbo);
-    glDeleteBuffers(1, &fieldVBO);   glDeleteVertexArrays(1, &fieldVAO);
-    glDeleteBuffers(1, &quadVBO);    glDeleteVertexArrays(1, &quadVAO);
-    glDeleteProgram(computeProg);    glDeleteProgram(fieldProg);
-    glDeleteProgram(textProg);       glDeleteProgram(rectProg);
+    glDeleteBuffers(1, &fieldVBO);  glDeleteVertexArrays(1, &fieldVAO);
+    glDeleteBuffers(1, &quadVBO);   glDeleteVertexArrays(1, &quadVAO);
+    glDeleteProgram(computeProg);   glDeleteProgram(fieldProg);
+    glDeleteProgram(textProg);      glDeleteProgram(rectProg);
     glfwTerminate();
     return 0;
 }
