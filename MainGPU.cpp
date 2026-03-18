@@ -26,8 +26,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-static constexpr int   RES = 100;
-static constexpr float DIFFUSION = 0.01f;
+static constexpr int   RES = 500;
+static constexpr float DIFFUSION = 0.0001f;
 
 // =============================================================================
 // Simulation mode  0=diffusion  1=wave  2=schrodinger
