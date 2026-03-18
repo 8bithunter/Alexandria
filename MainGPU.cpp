@@ -27,7 +27,7 @@
 #include <GLFW/glfw3.h>
 
 static constexpr int   RES = 100;
-static constexpr float DIFFUSION = 0.001f;
+static constexpr float DIFFUSION = 0.01f;
 
 // =============================================================================
 // Simulation mode  0=diffusion  1=wave  2=schrodinger
@@ -196,7 +196,7 @@ void main()
         // ── Schrödinger first half ───────────────────────────────────────────
         // iψ_t = –½∇²ψ  →  Re_t = –½∇²Im,  Im_t = +½∇²Re
         // Symplectic Euler step A: advance Re, hold Im
-        float lapIm = laplacian(r,l,u,d,c,FY);
+        float lapIm = uDiffusion * laplacian(r,l,u,d,c,FY);
         outData[base+FX] = get(c,FX) - 0.5 * lapIm * uDt;  // Re updated
         outData[base+FY] = get(c,FY);                        // Im unchanged
         outData[base+FZ] = get(c,FZ);
@@ -207,7 +207,7 @@ void main()
     else { // uMode == 3
         // ── Schrödinger second half ──────────────────────────────────────────
         // Symplectic Euler step B: advance Im using the freshly-updated Re
-        float lapRe = laplacian(r,l,u,d,c,FX);
+        float lapRe = uDiffusion * laplacian(r,l,u,d,c,FX);
         outData[base+FX] = get(c,FX);                        // Re unchanged
         outData[base+FY] = get(c,FY) + 0.5 * lapRe * uDt;  // Im updated
         outData[base+FZ] = get(c,FZ);
@@ -518,24 +518,33 @@ int main()
     const float invH2 = 1.0f / (h * h);
     const float dtMax = 0.016f;
 
-    // Diffusion CFL:  dt ≤ h² / (4D)
-    const float subDtDiff = (h * h) / (4.0f * DIFFUSION) * 0.9f;
-    const int   substepsDiff = std::max(1, (int)std::ceil(dtMax / subDtDiff));
+    // Maximum sim-time allowed to advance per real-world frame.
+    // Substeps are computed dynamically each frame from actual elapsed wall-clock
+    // time, so the simulation never outruns real-time regardless of frame rate.
+    // Increase this multiplier (e.g. 2.0f) for faster-than-real-time, or reduce
+    // it (e.g. 0.5f) for slow-motion.
+    const float SIM_SPEED = 1.0f;  // 1.0 = real-time
 
-    // Wave CFL:  dt ≤ h / (c √2)  where c = √D
-    const float subDtWave = (h / (std::sqrt(DIFFUSION) * std::sqrt(2.0f))) * 0.9f;
-    const int   substepsWave = std::max(1, (int)std::ceil(dtMax / subDtWave));
+    // Target visual update interval: aim for at least one step per frame at 60fps.
+    // subDt is clamped to this so the accumulator always fires every frame,
+    // giving smooth visuals. The CFL limit is still the hard upper bound for
+    // numerical stability — we never exceed it.
+    const float TARGET_STEP_DT = 1.0f / 120.0f;  // step at least every ~8ms
 
-    // Schrödinger symplectic Euler stability:  dt < h²/2
+    // Diffusion CFL:  dt <= h^2 / (4D)
+    const float subDtDiff = std::min((h * h) / (4.0f * DIFFUSION) * 0.9f, TARGET_STEP_DT);
+
+    // Wave CFL:  dt <= h / (c*sqrt(2))  where c = sqrt(D)
+    const float subDtWave = std::min((h / (std::sqrt(DIFFUSION) * std::sqrt(2.0f))) * 0.9f, TARGET_STEP_DT);
+
+    // Schrodinger symplectic Euler stability:  dt < h^2/2
+    // NOTE: cannot clamp to TARGET_STEP_DT — the stability limit is tiny
+    // (0.45*h^2 << 1/120s at any reasonable resolution). The accumulator
+    // fires as many steps as needed each frame to cover realDt at real-time
+    // speed, so visual update rate stays high without violating stability.
     const float subDtSchrod = 0.45f * h * h;
-    const int   substepsSchrod = 400;
 
     std::cout << "Resolution: " << N << "x" << N
-        << "\n  diffusion  substeps/frame=" << substepsDiff
-        << "  dt=" << subDtDiff
-        << "\n  wave       substeps/frame=" << substepsWave
-        << "  dt=" << subDtWave
-        << "\n  schrodinger substeps/frame=" << substepsSchrod
         << "  dt=" << subDtSchrod
         << "\nControls:\n"
         << "  1/2/3             — Diffusion / Wave / Schrodinger mode\n"
@@ -614,10 +623,23 @@ int main()
     int       current = 0;
     float     simTime = 0.0f;
     float     rotMat[16];
+    double    lastTime = glfwGetTime();
+    // Per-mode accumulators carry leftover budget across frames so that when
+    // subDt > realDt (low resolution) we don't fire at least 1 step per frame.
+    float accumDiff = 0.0f;
+    float accumWave = 0.0f;
+    float accumSchrod = 0.0f;
 
     // ── Main loop ─────────────────────────────────────────────────────────────
     while (!glfwWindowShouldClose(window))
     {
+        // ── Wall-clock delta time ─────────────────────────────────────────────
+        double nowTime = glfwGetTime();
+        float  realDt = (float)(nowTime - lastTime);
+        lastTime = nowTime;
+        // Budget: how much sim-time to advance this frame.
+        // Cap at 4× a 60-fps frame so a stall/resize doesn't cause a huge jump.
+        float simBudget = std::min(realDt, 4.0f / 60.0f) * SIM_SPEED;
         // ── Reset (R key or mode switch) ──────────────────────────────────────
         if (resetRequested) {
             resetRequested = false;
@@ -657,35 +679,43 @@ int main()
 
             if (simulationMode == 0) {
                 // ── Diffusion ─────────────────────────────────────────────────
+                // Accumulate real elapsed time; only fire a step when the
+                // accumulator has saved up enough budget for one subDt.
+                // This means at low resolution (large subDt) we may skip many
+                // frames before firing a single step — correct real-time pacing.
+                accumDiff += simBudget;
                 glUniform1i(uComputeModeU, 0);
                 glUniform1f(uDtU, subDtDiff);
-                for (int step = 0; step < substepsDiff; ++step) {
+                while (accumDiff >= subDtDiff) {
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
                     current = 1 - current;
+                    accumDiff -= subDtDiff;
+                    simTime += subDtDiff;
                 }
-                simTime += subDtDiff * substepsDiff;
             }
             else if (simulationMode == 1) {
                 // ── Wave ──────────────────────────────────────────────────────
+                accumWave += simBudget;
                 glUniform1i(uComputeModeU, 1);
                 glUniform1f(uDtU, subDtWave);
-                for (int step = 0; step < substepsWave; ++step) {
+                while (accumWave >= subDtWave) {
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
                     current = 1 - current;
+                    accumWave -= subDtWave;
+                    simTime += subDtWave;
                 }
-                simTime += subDtWave * substepsWave;
             }
             else {
-                // ── Schrödinger — symplectic Euler (two half-passes) ──────────
-                // Stable for dt < 0.29·h²; norm-preserving by construction.
+                // ── Schrodinger — symplectic Euler (two half-passes) ──────────
+                accumSchrod += simBudget;
                 glUniform1f(uDtU, subDtSchrod);
-                for (int step = 0; step < substepsSchrod; ++step) {
+                while (accumSchrod >= subDtSchrod) {
                     // Pass A: update Re from Im
                     glUniform1i(uComputeModeU, 2);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
@@ -700,8 +730,9 @@ int main()
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
                     current = 1 - current;
+                    accumSchrod -= subDtSchrod;
+                    simTime += subDtSchrod;
                 }
-                simTime += subDtSchrod * substepsSchrod;
             }
         }
 
