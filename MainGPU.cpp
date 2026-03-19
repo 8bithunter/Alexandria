@@ -27,8 +27,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-static constexpr int   RES = 500;
-static constexpr float DIFFUSION = 0.0001f;
+static constexpr int   RES = 200;
+static constexpr float DIFFUSION = 0.01f;
 
 // =============================================================================
 // Simulation mode  0=diffusion  1=wave  2=schrodinger
@@ -176,15 +176,16 @@ void main()
     }
     else if (uMode == 1) {
         float ax = uDiffusion * laplacian(r,l,u,d,c,FX);
+        float ay = uDiffusion * laplacian(r,l,u,d,c,FX);
         float az = uDiffusion * laplacian(r,l,u,d,c,FZ);
-        float vx = get(c,VX) + ax * uDt;
-        float vy = get(c,VY);
+        float vx = get(c,VX)*0.999 + ax * uDt;
+        float vy = get(c,VY) + ay * uDt;
         float vz = get(c,VZ) + az * uDt;
         outData[base+FX] = get(c,FX) + vx*uDt;
         outData[base+FY] = get(c,FY) + vy*uDt;
         outData[base+FZ] = get(c,FZ) + vz*uDt;
         outData[base+VX] = vx; outData[base+VY] = vy; outData[base+VZ] = vz;
-        outData[base+AX] = ax; outData[base+AY] = 0;  outData[base+AZ] = az;
+        outData[base+AX] = ax; outData[base+AY] = ay;  outData[base+AZ] = az;
         outData[base+9]  = 0.0;
     }
     else if (uMode == 2) {
