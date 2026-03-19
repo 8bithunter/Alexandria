@@ -22,6 +22,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <cstdint>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -119,10 +120,6 @@ static int formatModeLabel(int mode, uint32_t* out)
 
 // =============================================================================
 // Compute shader
-// Modes:  0 = diffusion
-//         1 = wave
-//         2 = Schrödinger first half  (update Re from Im)
-//         3 = Schrödinger second half (update Im from Re_new)
 // =============================================================================
 static const char* computeSrc = R"GLSL(
 #version 430 core
@@ -167,7 +164,6 @@ void main()
     int base = c * STRIDE;
 
     if (uMode == 0) {
-        // ── Diffusion : ∂u/∂t = D ∇²u ──────────────────────────────────────
         float vx = uDiffusion * laplacian(r,l,u,d,c,FX);
         float vy = uDiffusion * laplacian(r,l,u,d,c,FY);
         float vz = uDiffusion * laplacian(r,l,u,d,c,FZ);
@@ -179,7 +175,6 @@ void main()
         outData[base+9]  = 0.0;
     }
     else if (uMode == 1) {
-        // ── Wave : ∂²u/∂t² = c² ∇²u  (c² = uDiffusion) ────────────────────
         float ax = uDiffusion * laplacian(r,l,u,d,c,FX);
         float az = uDiffusion * laplacian(r,l,u,d,c,FZ);
         float vx = get(c,VX) + ax * uDt;
@@ -193,23 +188,18 @@ void main()
         outData[base+9]  = 0.0;
     }
     else if (uMode == 2) {
-        // ── Schrödinger first half ───────────────────────────────────────────
-        // iψ_t = –½∇²ψ  →  Re_t = –½∇²Im,  Im_t = +½∇²Re
-        // Symplectic Euler step A: advance Re, hold Im
         float lapIm = uDiffusion * laplacian(r,l,u,d,c,FY);
-        outData[base+FX] = get(c,FX) - 0.5 * lapIm * uDt;  // Re updated
-        outData[base+FY] = get(c,FY);                        // Im unchanged
+        outData[base+FX] = get(c,FX) - 0.5 * lapIm * uDt;
+        outData[base+FY] = get(c,FY);
         outData[base+FZ] = get(c,FZ);
         outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
-    else { // uMode == 3
-        // ── Schrödinger second half ──────────────────────────────────────────
-        // Symplectic Euler step B: advance Im using the freshly-updated Re
+    else {
         float lapRe = uDiffusion * laplacian(r,l,u,d,c,FX);
-        outData[base+FX] = get(c,FX);                        // Re unchanged
-        outData[base+FY] = get(c,FY) + 0.5 * lapRe * uDt;  // Im updated
+        outData[base+FX] = get(c,FX);
+        outData[base+FY] = get(c,FY) + 0.5 * lapRe * uDt;
         outData[base+FZ] = get(c,FZ);
         outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
@@ -219,9 +209,7 @@ void main()
 )GLSL";
 
 // =============================================================================
-// Field render shaders
-// uMode 0/1 → height & hue from FX (diffusion / wave)
-// uMode 2   → height = |ψ|,  hue = arg(ψ)  (Schrödinger)
+// Field render shaders — with normal-based Lambert lighting
 // =============================================================================
 static const char* fieldVertSrc = R"GLSL(
 #version 430 core
@@ -231,6 +219,7 @@ layout(location = 1) in uint aIdx;
 layout(std430, binding = 0) readonly buffer Field { float field[]; };
 uniform mat4 uRotation;
 uniform int  uMode;
+uniform int  uRes;
 out vec3 vColor;
 
 vec3 hueToRgb(float h)
@@ -247,31 +236,63 @@ vec3 hueToRgb(float h)
     else           return vec3(1,  0,  xc);
 }
 
+// Returns the display height of any cell index (clamped to grid).
+float cellHeight(int idx)
+{
+    idx = clamp(idx, 0, uRes*uRes - 1);
+    if (uMode == 2) {
+        float re = field[idx*STRIDE + 0];
+        float im = field[idx*STRIDE + 1];
+        return atan(sqrt(re*re + im*im) * 0.02) / 3.14159265;
+    } else {
+        return atan(field[idx*STRIDE] * 0.02) / 3.14159265;
+    }
+}
+
 void main()
 {
+    int id = int(aIdx);
+    int ix = id % uRes;
+    int iy = id / uRes;
+
+    // ── Neighbour heights for surface normal estimation ──────────────────────
+    float hr = cellHeight(iy*uRes + min(ix+1, uRes-1));
+    float hl = cellHeight(iy*uRes + max(ix-1, 0      ));
+    float hu = cellHeight(min(iy+1, uRes-1)*uRes + ix );
+    float hd = cellHeight(max(iy-1, 0      )*uRes + ix );
+
+    // zScale amplifies the normal tilt so shading is visible even on gentle slopes.
+    float zScale = 3.0;
+    vec3 tx = normalize(vec3(2.0, 0.0, (hr - hl) * zScale));
+    vec3 ty = normalize(vec3(0.0, 2.0, (hu - hd) * zScale));
+    vec3 N  = normalize(cross(tx, ty));
+
+    // ── Position & hue ───────────────────────────────────────────────────────
+    float height;
+    float hue;
+
     if (uMode == 2) {
-        // ── Schrödinger: complex field ψ = Re + i·Im ────────────────────────
-        float re  = field[int(aIdx)*STRIDE + 0];   // FX = Re(ψ)
-        float im  = field[int(aIdx)*STRIDE + 1];   // FY = Im(ψ)
+        float re  = field[id*STRIDE + 0];
+        float im  = field[id*STRIDE + 1];
         float mag = sqrt(re*re + im*im);
-
-        // height: arctan-compressed magnitude, centred at –0.25
-        float height = atan(mag * 0.02) / 3.14159265;  // [0, ~0.5)
-        gl_Position  = uRotation * vec4(aPos, height - 0.25, 1.0);
-
-        // hue: complex argument mapped to [0,1]
-        float angle = atan(im, re);                     // (–π, π]
-        float hue   = angle / (2.0 * 3.14159265) + 0.5;
-        vColor = hueToRgb(hue);
+        height = atan(mag * 0.02) / 3.14159265 - 0.25;
+        float angle = atan(im, re);
+        hue = angle / (2.0 * 3.14159265) + 0.5;
+    } else {
+        float fx = field[id*STRIDE];
+        height  = atan( fx*0.02) / 3.14159265 - 0.5;
+        hue     = atan(-fx*0.02) / 3.14159265 + 0.5;
     }
-    else {
-        // ── Diffusion / Wave: real field FX ─────────────────────────────────
-        float fx      = field[int(aIdx)*STRIDE];
-        float height  = atan( fx*0.02) / 3.14159265 + 0.5;   // positive fx → up
-        float hueNorm = atan(-fx*0.02) / 3.14159265 + 0.5;   // positive fx → warm hue
-        vColor      = hueToRgb(hueNorm);
-        gl_Position = uRotation * vec4(aPos, height - 0.5, 1.0);
-    }
+
+    gl_Position = uRotation * vec4(aPos, height, 1.0);
+
+    // ── Lambert lighting — fixed light in world space (upper-front-left) ─────
+    vec3 lightDir = normalize(vec3(-0.4, 0.6, 1.0));
+    float ambient = 0.25;
+    float diffuse = abs(dot(N, lightDir));   // abs = lit from both sides
+    float light   = ambient + (1.0 - ambient) * diffuse;
+
+    vColor = hueToRgb(hue) * light;
 }
 )GLSL";
 
@@ -283,7 +304,7 @@ void main() { FragColor = vec4(vColor, 1.0); }
 )GLSL";
 
 // =============================================================================
-// Text overlay shaders  (uFont now holds FONT_COUNT = 21 entries)
+// Text overlay shaders
 // =============================================================================
 static const char* textVertSrc = R"GLSL(
 #version 430 core
@@ -349,17 +370,22 @@ void main() { FragColor = uRectColor; }
 // =============================================================================
 // Global input state
 // =============================================================================
-struct RotationState {
-    bool dragging = false; double lastX = 0, lastY = 0;
-    float yaw = 0, pitch = 0, sensitivity = 0.005f;
+struct GlobeState {
+    bool  dragging = false;
+    double lastX = 0, lastY = 0;
+    float spin = 0.0f;   // rotation around field normal (Z) — left/right drag
+    float pitch = 0.5f;   // tilt toward viewer — 0=top-down, π=bottom-up
+    static constexpr float SENSITIVITY = 0.008f;  // slightly faster drag
 };
-static RotationState rot;
+static GlobeState rot;
 
 struct HeatState { bool active = false; double x = 0, y = 0; };
 static HeatState heat;
 
 static float heatValue = 100.0f;
 static int   heatRadius = 5;
+static float zoom = 2.5f;          // camera distance — scroll to change
+static float cameraY = 0.0f;          // vertical pan — shift+scroll
 static bool  paused = false;
 static bool  resetRequested = false;
 
@@ -393,13 +419,24 @@ static void scrollCallback(GLFWwindow* w, double, double yoff)
 {
     bool shift = (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
         glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+    bool ctrl = (glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+        glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
+    bool alt = (glfwGetKey(w, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
+        glfwGetKey(w, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
+
     if (shift) {
+        cameraY = std::clamp(cameraY + (float)yoff * 0.05f, -5.0f, 5.0f);
+    }
+    else if (alt) {
         heatRadius = std::clamp(heatRadius + (yoff > 0 ? 1 : -1), 1, 64);
         std::cout << "Brush radius: " << heatRadius << "\n";
     }
-    else {
+    else if (ctrl) {
         heatValue = std::clamp(heatValue + (float)yoff * 10.0f, 1.0f, 5000.0f);
         std::cout << "Paint value: " << heatValue << "\n";
+    }
+    else {
+        zoom = std::clamp(zoom - (float)yoff * 0.15f, 0.5f, 10.0f);
     }
 }
 
@@ -407,7 +444,8 @@ static void mouseButtonCallback(GLFWwindow* w, int btn, int action, int)
 {
     if (btn == GLFW_MOUSE_BUTTON_RIGHT) {
         rot.dragging = (action == GLFW_PRESS);
-        if (rot.dragging) glfwGetCursorPos(w, &rot.lastX, &rot.lastY);
+        if (rot.dragging)
+            glfwGetCursorPos(w, &rot.lastX, &rot.lastY);
     }
     if (btn == GLFW_MOUSE_BUTTON_LEFT)
         heat.active = (action == GLFW_PRESS);
@@ -416,21 +454,123 @@ static void mouseButtonCallback(GLFWwindow* w, int btn, int action, int)
 static void cursorPosCallback(GLFWwindow*, double x, double y)
 {
     if (rot.dragging) {
-        rot.yaw += float(x - rot.lastX) * rot.sensitivity;
-        rot.pitch += float(y - rot.lastY) * rot.sensitivity;
-        rot.pitch = std::clamp(rot.pitch, -1.5707963f, 1.5707963f);
+        float dx = (float)(x - rot.lastX);
+        float dy = (float)(y - rot.lastY);
+        rot.spin -= dx * GlobeState::SENSITIVITY;
+        rot.pitch += dy * GlobeState::SENSITIVITY;
+        // 0 = looking straight down (north pole), π-ε = looking straight up (south pole)
+        rot.pitch = std::clamp(rot.pitch, 0.0f, 3.14159265f - 0.0001f);
         rot.lastX = x; rot.lastY = y;
     }
     heat.x = x; heat.y = -y + 800;
 }
 
-static void buildRotationMatrix(float yaw, float pitch, float* m)
+// Generic column-major 4x4 inverse (Cramer's rule).
+static void mat4Inverse(const float* m, float* out)
 {
-    float cy = cosf(yaw), sy = sinf(yaw), cx = cosf(pitch), sx = sinf(pitch);
-    m[0] = cy;    m[1] = 0;   m[2] = -sy;    m[3] = 0;
-    m[4] = sy * sx; m[5] = cx;  m[6] = cy * sx;  m[7] = 0;
-    m[8] = sy * cx; m[9] = -sx; m[10] = cy * cx; m[11] = 0;
-    m[12] = 0;    m[13] = 0;  m[14] = 0;     m[15] = 1;
+    float inv[16];
+    inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
+    inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] - m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
+    inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
+    inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] - m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
+    inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] - m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
+    inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
+    inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
+    inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
+    inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] + m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
+    inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] - m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
+    inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] + m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
+    inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] - m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
+    inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
+    inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
+    inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] - m[4] * m[3] * m[9] - m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
+    inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] + m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5];
+    float det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+    if (fabsf(det) < 1e-8f) { memcpy(out, m, 64); return; }
+    det = 1.0f / det;
+    for (int i = 0; i < 16; i++) out[i] = inv[i] * det;
+}
+
+// Unproject screen position (OpenGL convention: y=0 at bottom) through MVP
+// to the z=0 world plane (the field surface). Returns false if ray misses.
+static bool unprojectToField(float sx, float sy, const float* MVP,
+    float& worldX, float& worldY)
+{
+    float invMVP[16];
+    mat4Inverse(MVP, invMVP);
+
+    float nx = 2.0f * sx / 800.0f - 1.0f;
+    float ny = 2.0f * sy / 800.0f - 1.0f;
+
+    // Unproject clip-space point at near (-1) and far (+1) depths to world.
+    auto unproj = [&](float nz, float out[3]) {
+        float clip[4] = { nx, ny, nz, 1.0f };
+        float w[4] = {};
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                w[r] += invMVP[c * 4 + r] * clip[c];
+        float invW = (fabsf(w[3]) > 1e-8f) ? 1.0f / w[3] : 1.0f;
+        out[0] = w[0] * invW; out[1] = w[1] * invW; out[2] = w[2] * invW;
+        };
+
+    float nearPt[3], farPt[3];
+    unproj(-1.0f, nearPt);
+    unproj(1.0f, farPt);
+
+    // Intersect ray with z=0 plane.
+    float dz = farPt[2] - nearPt[2];
+    if (fabsf(dz) < 1e-6f) return false;
+    float t = -nearPt[2] / dz;
+
+    worldX = nearPt[0] + t * (farPt[0] - nearPt[0]);
+    worldY = nearPt[1] + t * (farPt[1] - nearPt[1]);
+    return true;
+}
+
+// Turntable rotation: Rx(pitch) * Rz(spin)
+//   spin  — left/right drag, rotates around the field normal (Z)
+//   pitch — up/down drag, tilts the field toward/away from viewer
+//   North (field +Y) always stays pointing up on screen at any spin angle.
+static void buildGlobeMatrix(float spin, float pitch, float* m)
+{
+    float cs = cosf(spin), ss = sinf(spin);
+    float cp = cosf(pitch), sp = sinf(pitch);
+    // Column-major Rx(pitch) * Rz(spin)
+    m[0] = cs;      m[1] = -ss * cp;   m[2] = ss * sp;   m[3] = 0;
+    m[4] = ss;      m[5] = cs * cp;   m[6] = -cs * sp;   m[7] = 0;
+    m[8] = 0;       m[9] = sp;      m[10] = cp;     m[11] = 0;
+    m[12] = 0;       m[13] = 0;       m[14] = 0;       m[15] = 1;
+}
+
+// Column-major 4x4 multiply:  C = A * B
+static void matMul(const float* A, const float* B, float* C)
+{
+    for (int col = 0; col < 4; ++col)
+        for (int row = 0; row < 4; ++row) {
+            float s = 0;
+            for (int k = 0; k < 4; ++k) s += A[k * 4 + row] * B[col * 4 + k];
+            C[col * 4 + row] = s;
+        }
+}
+
+// Standard OpenGL perspective matrix (column-major)
+static void buildPerspective(float fovY, float aspect, float near, float far, float* m)
+{
+    float f = 1.0f / tanf(fovY * 0.5f);
+    memset(m, 0, 64);
+    m[0] = f / aspect;
+    m[5] = f;
+    m[10] = (far + near) / (near - far);
+    m[11] = -1.0f;
+    m[14] = 2.0f * far * near / (near - far);
+}
+
+// Translation matrix (column-major)
+static void buildTranslation(float tx, float ty, float tz, float* m)
+{
+    memset(m, 0, 64);
+    m[0] = m[5] = m[10] = m[15] = 1.0f;
+    m[12] = tx; m[13] = ty; m[14] = tz;
 }
 
 // =============================================================================
@@ -445,6 +585,7 @@ static unsigned int compileShader(GLenum type, const char* src)
     if (!ok) { char log[1024]; glGetShaderInfoLog(s, 1024, nullptr, log); std::cerr << log << "\n"; }
     return s;
 }
+
 static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 {
     unsigned int p = glCreateProgram();
@@ -500,6 +641,7 @@ int main()
 
     int uRotationU = glGetUniformLocation(fieldProg, "uRotation");
     int uFieldModeU = glGetUniformLocation(fieldProg, "uMode");
+    int uFieldResU = glGetUniformLocation(fieldProg, "uRes");   // ← new
 
     int uTxtOrigin = glGetUniformLocation(textProg, "uOrigin");
     int uTxtSize = glGetUniformLocation(textProg, "uCharSize");
@@ -516,32 +658,12 @@ int main()
     const int   N = RES;
     const float h = (N > 1) ? (2.0f / (N - 1)) : 1.0f;
     const float invH2 = 1.0f / (h * h);
-    const float dtMax = 0.016f;
 
-    // Maximum sim-time allowed to advance per real-world frame.
-    // Substeps are computed dynamically each frame from actual elapsed wall-clock
-    // time, so the simulation never outruns real-time regardless of frame rate.
-    // Increase this multiplier (e.g. 2.0f) for faster-than-real-time, or reduce
-    // it (e.g. 0.5f) for slow-motion.
-    const float SIM_SPEED = 1.0f;  // 1.0 = real-time
+    const float SIM_SPEED = 1.0f;
+    const float TARGET_STEP_DT = 1.0f / 120.0f;
 
-    // Target visual update interval: aim for at least one step per frame at 60fps.
-    // subDt is clamped to this so the accumulator always fires every frame,
-    // giving smooth visuals. The CFL limit is still the hard upper bound for
-    // numerical stability — we never exceed it.
-    const float TARGET_STEP_DT = 1.0f / 120.0f;  // step at least every ~8ms
-
-    // Diffusion CFL:  dt <= h^2 / (4D)
     const float subDtDiff = std::min((h * h) / (4.0f * DIFFUSION) * 0.9f, TARGET_STEP_DT);
-
-    // Wave CFL:  dt <= h / (c*sqrt(2))  where c = sqrt(D)
     const float subDtWave = std::min((h / (std::sqrt(DIFFUSION) * std::sqrt(2.0f))) * 0.9f, TARGET_STEP_DT);
-
-    // Schrodinger symplectic Euler stability:  dt < h^2/2
-    // NOTE: cannot clamp to TARGET_STEP_DT — the stability limit is tiny
-    // (0.45*h^2 << 1/120s at any reasonable resolution). The accumulator
-    // fires as many steps as needed each frame to cover realDt at real-time
-    // speed, so visual update rate stays high without violating stability.
     const float subDtSchrod = 0.45f * h * h;
 
     std::cout << "Resolution: " << N << "x" << N
@@ -549,8 +671,10 @@ int main()
         << "\nControls:\n"
         << "  1/2/3             — Diffusion / Wave / Schrodinger mode\n"
         << "  Left-click+drag   — paint excitation\n"
-        << "  Scroll            — change paint value (cur: " << heatValue << ")\n"
-        << "  Shift+Scroll      — change brush radius (cur: " << heatRadius << ")\n"
+        << "  Scroll            — zoom in / out\n"
+        << "  Shift+Scroll      — camera up / down\n"
+        << "  Alt+Scroll        — change brush radius (cur: " << heatRadius << ")\n"
+        << "  Ctrl+Scroll       — change paint value (cur: " << heatValue << ")\n"
         << "  Right-click+drag  — rotate view\n"
         << "  Space             — pause / resume\n"
         << "  R                 — reset field\n";
@@ -622,13 +746,10 @@ int main()
     const int groups = (N + 15) / 16;
     int       current = 0;
     float     simTime = 0.0f;
-    float     rotMat[16];
     double    lastTime = glfwGetTime();
-    // Per-mode accumulators carry leftover budget across frames so that when
-    // subDt > realDt (low resolution) we don't fire at least 1 step per frame.
-    float accumDiff = 0.0f;
-    float accumWave = 0.0f;
-    float accumSchrod = 0.0f;
+    float     accumDiff = 0.0f;
+    float     accumWave = 0.0f;
+    float     accumSchrod = 0.0f;
 
     // ── Main loop ─────────────────────────────────────────────────────────────
     while (!glfwWindowShouldClose(window))
@@ -637,10 +758,9 @@ int main()
         double nowTime = glfwGetTime();
         float  realDt = (float)(nowTime - lastTime);
         lastTime = nowTime;
-        // Budget: how much sim-time to advance this frame.
-        // Cap at 4× a 60-fps frame so a stall/resize doesn't cause a huge jump.
         float simBudget = std::min(realDt, 4.0f / 60.0f) * SIM_SPEED;
-        // ── Reset (R key or mode switch) ──────────────────────────────────────
+
+        // ── Reset ─────────────────────────────────────────────────────────────
         if (resetRequested) {
             resetRequested = false;
             simTime = 0.0f;
@@ -653,17 +773,30 @@ int main()
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
 
+        // ── Build MVP early — needed for brush unprojection and rendering ────
+        float R[16], T[16], P[16], TR[16], MVP[16];
+        buildGlobeMatrix(rot.spin, rot.pitch, R);
+        buildTranslation(0.0f, cameraY, -zoom, T);
+        buildPerspective(3.14159265f / 3.0f, 1.0f, 0.01f, 100.0f, P);
+        matMul(T, R, TR);
+        matMul(P, TR, MVP);
+
         // ── Paint excitation ──────────────────────────────────────────────────
         if (heat.active) {
-            int cx = (int)(heat.x / 800.0 * N);
-            int cy = (int)(heat.y / 800.0 * N);
+            // heat.y is already in OpenGL convention (0=bottom, 800=top)
+            float worldX, worldY;
+            int cx = N / 2, cy = N / 2;   // fallback: field centre
+            if (unprojectToField((float)heat.x, (float)heat.y, MVP, worldX, worldY)) {
+                // field spans [-1,+1] in world XY → map to grid indices
+                cx = (int)((worldX + 1.0f) * 0.5f * N);
+                cy = (int)((worldY + 1.0f) * 0.5f * N);
+            }
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
             for (int dy = -heatRadius; dy <= heatRadius; ++dy)
                 for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
                     if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
                     int gi = cy + dy, gj = cx + dx;
                     if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
-                    // Always write FX (= Re in Schrödinger mode).
                     GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
                     glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &heatValue);
                 }
@@ -678,11 +811,6 @@ int main()
             glUniform1f(uDiffusionU, DIFFUSION);
 
             if (simulationMode == 0) {
-                // ── Diffusion ─────────────────────────────────────────────────
-                // Accumulate real elapsed time; only fire a step when the
-                // accumulator has saved up enough budget for one subDt.
-                // This means at low resolution (large subDt) we may skip many
-                // frames before firing a single step — correct real-time pacing.
                 accumDiff += simBudget;
                 glUniform1i(uComputeModeU, 0);
                 glUniform1f(uDtU, subDtDiff);
@@ -697,7 +825,6 @@ int main()
                 }
             }
             else if (simulationMode == 1) {
-                // ── Wave ──────────────────────────────────────────────────────
                 accumWave += simBudget;
                 glUniform1i(uComputeModeU, 1);
                 glUniform1f(uDtU, subDtWave);
@@ -712,7 +839,6 @@ int main()
                 }
             }
             else {
-                // ── Schrodinger — symplectic Euler (two half-passes) ──────────
                 accumSchrod += simBudget;
                 glUniform1f(uDtU, subDtSchrod);
                 while (accumSchrod >= subDtSchrod) {
@@ -742,9 +868,9 @@ int main()
         glEnable(GL_DEPTH_TEST);
 
         glUseProgram(fieldProg);
-        buildRotationMatrix(rot.yaw, rot.pitch, rotMat);
-        glUniformMatrix4fv(uRotationU, 1, GL_FALSE, rotMat);
+        glUniformMatrix4fv(uRotationU, 1, GL_FALSE, MVP);
         glUniform1i(uFieldModeU, simulationMode);
+        glUniform1i(uFieldResU, N);                  // ← pass resolution
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
         glBindVertexArray(fieldVAO);
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
@@ -776,11 +902,10 @@ int main()
         glBindVertexArray(quadVAO);
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numChars);
 
-        // — Mode label  (below timer, colour-coded) —
+        // — Mode label —
         uint32_t modeBuf[3];
         int numMode = formatModeLabel(simulationMode, modeBuf);
         float modeW = CHAR_W + (numMode - 1) * CHAR_ADV;
-        // Vertical: just below the timer box
         float modeY = TEXT_Y - CHAR_H - PAD - MARGIN;
 
         glUseProgram(rectProg);
@@ -796,7 +921,6 @@ int main()
         glUniform1f(uTxtAdvance, CHAR_ADV);
         glUniform1uiv(uTxtFont, FONT_COUNT, FONT);
         glUniform1uiv(uTxtChars, numMode, modeBuf);
-        // Colour: orange=diffusion, cyan=wave, magenta=Schrödinger
         if (simulationMode == 0) glUniform4f(uTxtColor, 1.0f, 0.65f, 0.0f, 1.0f);
         else if (simulationMode == 1) glUniform4f(uTxtColor, 0.0f, 1.0f, 1.0f, 1.0f);
         else                          glUniform4f(uTxtColor, 1.0f, 0.3f, 1.0f, 1.0f);
