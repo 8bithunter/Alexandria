@@ -2,17 +2,22 @@
 // Field Simulation — GPU Compute Edition
 // Requires OpenGL 4.3 (compute shaders + SSBOs)
 //
-// Simulation modes (keys 1 / 2 / 3):
+// Simulation modes (keys 1 / 2 / 3 / 4):
 //   1 – Diffusion   : ∂u/∂t = D ∇²u
 //   2 – Wave        : ∂²u/∂t² = c² ∇²u
-//   3 – Schrödinger : i ∂ψ/∂t = –½ ∇²ψ   (ħ = m = 1)
+//   3 – Fluid Flow  : semi-Lagrangian advection + viscosity
+//       Drag cursor to push fluid; speed proportional to drag speed
+//       hue = flow direction, height = speed magnitude
+//   4 – Schrödinger : i ∂ψ/∂t = –½ ∇²ψ   (ħ = m = 1)
 //       FX = Re(ψ),  FY = Im(ψ)
 //       height = |ψ|,  hue = arg(ψ)
 //
 // Other controls:
-//   Left-click+drag  – paint excitation (Re in Schrödinger mode)
-//   Scroll           – change paint value
-//   Shift+Scroll     – change brush radius
+//   Left-click+drag  – paint excitation (fluid: pushes in drag direction)
+//   Ctrl+Scroll      – change paint value / fluid push strength
+//   Alt+Scroll       – change brush radius
+//   Shift+Scroll     – camera up / down
+//   Scroll           – zoom in / out
 //   Right-click+drag – rotate view
 //   Space            – pause / resume
 //   R                – reset field
@@ -30,19 +35,15 @@
 static constexpr int   RES = 200;
 static constexpr float DIFFUSION = 0.01f;
 
-// =============================================================================
-// Simulation mode  0=diffusion  1=wave  2=schrodinger
-// =============================================================================
+// simulationMode:  0=diffusion  1=wave  2=fluid  3=schrödinger
 static int simulationMode = 0;
 
 // =============================================================================
 // Bitmap font  (4 wide × 6 tall, packed as 6 nibbles into uint32_t)
-// Bit index = row*4 + col;  row 0 = top,  col 0 = left.
 // =============================================================================
 // clang-format off
 static const uint32_t FONT[] = {
-    // ── digits ──────────────────────────────────────────────────────────────
-    0x6 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x9 << 16) | (0x6 << 20),  //  0
+    0x6 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x9 << 16) | (0x6 << 20),  //  0  'O'
     0x2 | (0x3 << 4) | (0x2 << 8) | (0x2 << 12) | (0x2 << 16) | (0xE << 20),  //  1
     0x7 | (0x8 << 4) | (0x6 << 8) | (0x1 << 12) | (0x1 << 16) | (0xF << 20),  //  2
     0x7 | (0x8 << 4) | (0x6 << 8) | (0x8 << 12) | (0x8 << 16) | (0x7 << 20),  //  3
@@ -52,27 +53,18 @@ static const uint32_t FONT[] = {
     0xF | (0x8 << 4) | (0x4 << 8) | (0x2 << 12) | (0x2 << 16) | (0x2 << 20),  //  7
     0x6 | (0x9 << 4) | (0x6 << 8) | (0x9 << 12) | (0x9 << 16) | (0x6 << 20),  //  8
     0x6 | (0x9 << 4) | (0xE << 8) | (0x8 << 12) | (0x8 << 16) | (0x6 << 20),  //  9
-    // ── punctuation / symbols ───────────────────────────────────────────────
     0x0 | (0x0 << 4) | (0x0 << 8) | (0x0 << 12) | (0x2 << 16) | (0x0 << 20),  // 10  '.'
     0xE | (0x1 << 4) | (0x6 << 8) | (0x8 << 12) | (0x8 << 16) | (0x7 << 20),  // 11  'S'
     0x0,                                                    // 12  ' '
-    // ── mode-label glyphs ────────────────────────────────────────────────────
-    // D  (13)
-    0x7 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x9 << 16) | (0x7 << 20),
-    // I  (14)
-    0xF | (0x6 << 4) | (0x6 << 8) | (0x6 << 12) | (0x6 << 16) | (0xF << 20),
-    // F  (15)
-    0xF | (0x1 << 4) | (0x7 << 8) | (0x1 << 12) | (0x1 << 16) | (0x1 << 20),
-    // W  (16) — approximated in 4 px
-    0x9 | (0x9 << 4) | (0xF << 8) | (0x6 << 12) | (0x9 << 16) | (0x9 << 20),
-    // A  (17)
-    0x6 | (0x9 << 4) | (0xF << 8) | (0x9 << 12) | (0x9 << 16) | (0x9 << 20),
-    // V  (18)
-    0x9 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x6 << 16) | (0x6 << 20),
-    // C  (19)
-    0xE | (0x1 << 4) | (0x1 << 8) | (0x1 << 12) | (0x1 << 16) | (0xE << 20),
-    // H  (20)
-    0x9 | (0x9 << 4) | (0xF << 8) | (0x9 << 12) | (0x9 << 16) | (0x9 << 20),
+    0x7 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x9 << 16) | (0x7 << 20),  // 13  'D'
+    0xF | (0x6 << 4) | (0x6 << 8) | (0x6 << 12) | (0x6 << 16) | (0xF << 20),  // 14  'I'
+    0xF | (0x1 << 4) | (0x7 << 8) | (0x1 << 12) | (0x1 << 16) | (0x1 << 20),  // 15  'F'
+    0x9 | (0x9 << 4) | (0xF << 8) | (0x6 << 12) | (0x9 << 16) | (0x9 << 20),  // 16  'W'
+    0x6 | (0x9 << 4) | (0xF << 8) | (0x9 << 12) | (0x9 << 16) | (0x9 << 20),  // 17  'A'
+    0x9 | (0x9 << 4) | (0x9 << 8) | (0x9 << 12) | (0x6 << 16) | (0x6 << 20),  // 18  'V'
+    0xE | (0x1 << 4) | (0x1 << 8) | (0x1 << 12) | (0x1 << 16) | (0xE << 20),  // 19  'C'
+    0x9 | (0x9 << 4) | (0xF << 8) | (0x9 << 12) | (0x9 << 16) | (0x9 << 20),  // 20  'H'
+    0x8 | (0x8 << 4) | (0x8 << 8) | (0x8 << 12) | (0x8 << 16) | (0xF << 20),  // 21  'L'
 };
 // clang-format on
 static constexpr int GLYPH_DOT = 10;
@@ -86,7 +78,9 @@ static constexpr int GLYPH_A = 17;
 static constexpr int GLYPH_V = 18;
 static constexpr int GLYPH_C = 19;
 static constexpr int GLYPH_H = 20;
-static constexpr int FONT_COUNT = 21;
+static constexpr int GLYPH_L = 21;
+static constexpr int GLYPH_O = 0;
+static constexpr int FONT_COUNT = 22;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 static int formatSimTime(float t, uint32_t* out, int maxOut)
@@ -94,7 +88,6 @@ static int formatSimTime(float t, uint32_t* out, int maxOut)
     if (t < 0.0f) t = 0.0f;
     int intPart = static_cast<int>(t);
     int frac = static_cast<int>(t * 10.0f) % 10;
-
     uint32_t digits[8]; int nd = 0;
     if (intPart == 0) { digits[nd++] = 0; }
     else {
@@ -114,12 +107,14 @@ static int formatModeLabel(int mode, uint32_t* out)
 {
     if (mode == 0) { out[0] = GLYPH_D; out[1] = GLYPH_I; out[2] = GLYPH_F; }
     else if (mode == 1) { out[0] = GLYPH_W; out[1] = GLYPH_A; out[2] = GLYPH_V; }
+    else if (mode == 2) { out[0] = GLYPH_F; out[1] = GLYPH_L; out[2] = GLYPH_O; }
     else { out[0] = GLYPH_S; out[1] = GLYPH_C; out[2] = GLYPH_H; }
     return 3;
 }
 
 // =============================================================================
 // Compute shader
+// uMode: 0=diffusion  1=wave  2=fluid  3=schrod_re  4=schrod_im
 // =============================================================================
 static const char* computeSrc = R"GLSL(
 #version 430 core
@@ -143,13 +138,29 @@ uniform int   uRes;
 uniform float uInvH2;
 uniform float uDiffusion;
 uniform float uDt;
-uniform int   uMode;  // 0=diffusion  1=wave  2=schrod_re  3=schrod_im
+uniform int   uMode;
 
 float get(int cell, int comp) { return inData[cell * STRIDE + comp]; }
 
 float laplacian(int r, int l, int u, int d, int c, int comp)
 {
     return (get(r,comp)+get(l,comp)+get(u,comp)+get(d,comp) - 4.0*get(c,comp)) * uInvH2;
+}
+
+float bilinear(float fx, float fy, int comp)
+{
+    fx = clamp(fx, 0.0, float(uRes - 1));
+    fy = clamp(fy, 0.0, float(uRes - 1));
+    int x0 = int(fx), y0 = int(fy);
+    int x1 = min(x0 + 1, uRes - 1);
+    int y1 = min(y0 + 1, uRes - 1);
+    float tx = fx - float(x0);
+    float ty = fy - float(y0);
+    float v00 = get(y0*uRes+x0, comp);
+    float v10 = get(y0*uRes+x1, comp);
+    float v01 = get(y1*uRes+x0, comp);
+    float v11 = get(y1*uRes+x1, comp);
+    return mix(mix(v00,v10,tx), mix(v01,v11,tx), ty);
 }
 
 void main()
@@ -176,21 +187,43 @@ void main()
     }
     else if (uMode == 1) {
         float ax = uDiffusion * laplacian(r,l,u,d,c,FX);
-        float ay = uDiffusion * laplacian(r,l,u,d,c,FX);
+        float ay = uDiffusion * laplacian(r,l,u,d,c,FY);
         float az = uDiffusion * laplacian(r,l,u,d,c,FZ);
-        float vx = get(c,VX)*0.999 + ax * uDt;
-        float vy = get(c,VY) + ay * uDt;
-        float vz = get(c,VZ) + az * uDt;
+        float vx = get(c,VX)*0.999 + ax*uDt;
+        float vy = get(c,VY)       + ay*uDt;
+        float vz = get(c,VZ)       + az*uDt;
         outData[base+FX] = get(c,FX) + vx*uDt;
         outData[base+FY] = get(c,FY) + vy*uDt;
         outData[base+FZ] = get(c,FZ) + vz*uDt;
         outData[base+VX] = vx; outData[base+VY] = vy; outData[base+VZ] = vz;
-        outData[base+AX] = ax; outData[base+AY] = ay;  outData[base+AZ] = az;
+        outData[base+AX] = ax; outData[base+AY] = ay; outData[base+AZ] = az;
         outData[base+9]  = 0.0;
     }
     else if (uMode == 2) {
-        float lapIm = uDiffusion * laplacian(r,l,u,d,c,FY);
-        outData[base+FX] = get(c,FX) - 0.5 * lapIm * uDt;
+        // Semi-Lagrangian advection + viscous diffusion.
+        // FX = velocity x,  FY = velocity y  (world-space units per second)
+        float h   = 2.0 / float(uRes - 1);
+        float vx  = get(c, FX);
+        float vy  = get(c, FY);
+        float px  = float(id.x) - vx * uDt / h;
+        float py  = float(id.y) - vy * uDt / h;
+        float newVx = bilinear(px, py, FX);
+        float newVy = bilinear(px, py, FY);
+        newVx += uDiffusion * laplacian(r,l,u,d,c,FX) * uDt;
+        newVy += uDiffusion * laplacian(r,l,u,d,c,FY) * uDt;
+        newVx *= 0.9995;
+        newVy *= 0.9995;
+        outData[base+FX] = newVx;
+        outData[base+FY] = newVy;
+        outData[base+FZ] = 0.0;
+        outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
+        outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
+        outData[base+9]  = 0.0;
+    }
+    else if (uMode == 3) {
+        // Schrödinger pass A: ∂Re/∂t = +½ ∇²Im
+        float lapIm = laplacian(r,l,u,d,c,FY);
+        outData[base+FX] = get(c,FX) - 0.5*lapIm*uDt;
         outData[base+FY] = get(c,FY);
         outData[base+FZ] = get(c,FZ);
         outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
@@ -198,9 +231,10 @@ void main()
         outData[base+9]  = 0.0;
     }
     else {
-        float lapRe = uDiffusion * laplacian(r,l,u,d,c,FX);
+        // Schrödinger pass B: ∂Im/∂t = –½ ∇²Re
+        float lapRe = laplacian(r,l,u,d,c,FX);
         outData[base+FX] = get(c,FX);
-        outData[base+FY] = get(c,FY) + 0.5 * lapRe * uDt;
+        outData[base+FY] = get(c,FY) + 0.5*lapRe*uDt;
         outData[base+FZ] = get(c,FZ);
         outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
@@ -210,7 +244,8 @@ void main()
 )GLSL";
 
 // =============================================================================
-// Field render shaders — with normal-based Lambert lighting
+// Field render shaders
+// uMode >= 2 → complex-pair coloring (hue = atan2, height = magnitude)
 // =============================================================================
 static const char* fieldVertSrc = R"GLSL(
 #version 430 core
@@ -227,8 +262,7 @@ vec3 hueToRgb(float h)
 {
     float hp = h * 6.0;
     float xc = 1.0 - abs(mod(hp, 2.0) - 1.0);
-    int   s  = int(hp) % 6;
-    if (s < 0) s += 6;
+    int s = int(hp) % 6; if (s < 0) s += 6;
     if      (s==0) return vec3(1,  xc, 0 );
     else if (s==1) return vec3(xc, 1,  0 );
     else if (s==2) return vec3(0,  1,  xc);
@@ -237,11 +271,10 @@ vec3 hueToRgb(float h)
     else           return vec3(1,  0,  xc);
 }
 
-// Returns the display height of any cell index (clamped to grid).
 float cellHeight(int idx)
 {
     idx = clamp(idx, 0, uRes*uRes - 1);
-    if (uMode == 2) {
+    if (uMode >= 2) {
         float re = field[idx*STRIDE + 0];
         float im = field[idx*STRIDE + 1];
         return atan(sqrt(re*re + im*im) * 0.02) / 3.14159265;
@@ -256,43 +289,33 @@ void main()
     int ix = id % uRes;
     int iy = id / uRes;
 
-    // ── Neighbour heights for surface normal estimation ──────────────────────
     float hr = cellHeight(iy*uRes + min(ix+1, uRes-1));
     float hl = cellHeight(iy*uRes + max(ix-1, 0      ));
     float hu = cellHeight(min(iy+1, uRes-1)*uRes + ix );
     float hd = cellHeight(max(iy-1, 0      )*uRes + ix );
-
-    // zScale amplifies the normal tilt so shading is visible even on gentle slopes.
     float zScale = 3.0;
-    vec3 tx = normalize(vec3(2.0, 0.0, (hr - hl) * zScale));
-    vec3 ty = normalize(vec3(0.0, 2.0, (hu - hd) * zScale));
+    vec3 tx = normalize(vec3(2.0, 0.0, (hr-hl)*zScale));
+    vec3 ty = normalize(vec3(0.0, 2.0, (hu-hd)*zScale));
     vec3 N  = normalize(cross(tx, ty));
 
-    // ── Position & hue ───────────────────────────────────────────────────────
-    float height;
-    float hue;
-
-    if (uMode == 2) {
+    float height, hue;
+    if (uMode >= 2) {
         float re  = field[id*STRIDE + 0];
         float im  = field[id*STRIDE + 1];
         float mag = sqrt(re*re + im*im);
-        height = atan(mag * 0.02) / 3.14159265 - 0.25;
-        float angle = atan(im, re);
-        hue = angle / (2.0 * 3.14159265) + 0.5;
+        if (uMode == 2) {height = atan(mag) / 3.14159265 - 0.25;}
+        else {height = atan(mag * 0.02) / 3.14159265 - 0.25;}
+        hue    = atan(im, re) / (2.0*3.14159265) + 0.5;
     } else {
         float fx = field[id*STRIDE];
-        height  = atan( fx*0.02) / 3.14159265 - 0.5;
-        hue     = atan(-fx*0.02) / 3.14159265 + 0.5;
+        height = atan( fx*0.02) / 3.14159265 - 0.5;
+        hue    = atan(-fx*0.02) / 3.14159265 + 0.5;
     }
 
     gl_Position = uRotation * vec4(aPos, height, 1.0);
 
-    // ── Lambert lighting — fixed light in world space (upper-front-left) ─────
     vec3 lightDir = normalize(vec3(-0.4, 0.6, 1.0));
-    float ambient = 0.25;
-    float diffuse = abs(dot(N, lightDir));   // abs = lit from both sides
-    float light   = ambient + (1.0 - ambient) * diffuse;
-
+    float light = 0.25 + 0.75 * abs(dot(N, lightDir));
     vColor = hueToRgb(hue) * light;
 }
 )GLSL";
@@ -310,21 +333,17 @@ void main() { FragColor = vec4(vColor, 1.0); }
 static const char* textVertSrc = R"GLSL(
 #version 430 core
 layout(location = 0) in vec2 aPos;
-
 uniform vec2  uOrigin;
 uniform vec2  uCharSize;
 uniform float uAdvance;
-uniform uint  uFont[21];
+uniform uint  uFont[22];
 uniform uint  uChars[16];
-
 out vec2 vUV;
 flat out uint vGlyph;
-
 void main()
 {
     vec2 cellOrigin = uOrigin + vec2(float(gl_InstanceID) * uAdvance, 0.0);
-    vec2 ndcPos = cellOrigin + vec2(aPos.x * uCharSize.x, -aPos.y * uCharSize.y);
-    gl_Position = vec4(ndcPos, 0.0, 1.0);
+    gl_Position = vec4(cellOrigin + vec2(aPos.x*uCharSize.x, -aPos.y*uCharSize.y), 0.0, 1.0);
     vUV    = aPos;
     vGlyph = uFont[uChars[gl_InstanceID]];
 }
@@ -336,7 +355,6 @@ in  vec2 vUV;
 flat in uint vGlyph;
 uniform vec4 uTextColor;
 out vec4 FragColor;
-
 void main()
 {
     int col = clamp(int(vUV.x * 4.0), 0, 3);
@@ -347,7 +365,7 @@ void main()
 )GLSL";
 
 // =============================================================================
-// Solid 2-D rect shader
+// Solid rect shader
 // =============================================================================
 static const char* rectVertSrc = R"GLSL(
 #version 430 core
@@ -356,7 +374,7 @@ uniform vec2 uRectOrigin;
 uniform vec2 uRectSize;
 void main()
 {
-    vec2 p = uRectOrigin + vec2(aPos.x * uRectSize.x, -aPos.y * uRectSize.y);
+    vec2 p = uRectOrigin + vec2(aPos.x*uRectSize.x, -aPos.y*uRectSize.y);
     gl_Position = vec4(p, 0.0, 1.0);
 }
 )GLSL";
@@ -372,21 +390,27 @@ void main() { FragColor = uRectColor; }
 // Global input state
 // =============================================================================
 struct GlobeState {
-    bool  dragging = false;
+    bool dragging = false;
     double lastX = 0, lastY = 0;
-    float spin = 0.0f;   // rotation around field normal (Z) — left/right drag
-    float pitch = 0.5f;   // tilt toward viewer — 0=top-down, π=bottom-up
-    static constexpr float SENSITIVITY = 0.008f;  // slightly faster drag
+    float spin = 0.0f;
+    float pitch = 0.5f;
+    static constexpr float SENSITIVITY = 0.008f;
 };
 static GlobeState rot;
 
-struct HeatState { bool active = false; double x = 0, y = 0; };
-static HeatState heat;
+// Cursor position (OpenGL convention: y=0 at bottom) and per-frame delta.
+// heatDX/heatDY are accumulated in cursorPosCallback and consumed once per
+// frame in the paint section, then cleared.
+static bool  heatActive = false;
+static float heatCurX = 0.0f;
+static float heatCurY = 0.0f;   // OpenGL y (0 = bottom)
+static float heatDX = 0.0f;
+static float heatDY = 0.0f;
 
 static float heatValue = 100.0f;
 static int   heatRadius = 5;
-static float zoom = 2.5f;          // camera distance — scroll to change
-static float cameraY = 0.0f;          // vertical pan — shift+scroll
+static float zoom = 2.5f;
+static float cameraY = 0.0f;
 static bool  paused = false;
 static bool  resetRequested = false;
 
@@ -395,78 +419,69 @@ static bool  resetRequested = false;
 // =============================================================================
 static void keyCallback(GLFWwindow*, int key, int, int action, int)
 {
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-        paused = !paused;
-    if (key == GLFW_KEY_R && action == GLFW_PRESS)
-        resetRequested = true;
-
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) paused = !paused;
+    if (key == GLFW_KEY_R && action == GLFW_PRESS) resetRequested = true;
     if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_1) {
-            simulationMode = 0; resetRequested = true;
-            std::cout << "Mode: Diffusion  (1)\n";
-        }
-        if (key == GLFW_KEY_2) {
-            simulationMode = 1; resetRequested = true;
-            std::cout << "Mode: Wave  (2)\n";
-        }
-        if (key == GLFW_KEY_3) {
-            simulationMode = 2; resetRequested = true;
-            std::cout << "Mode: Schrodinger  (3)\n";
-        }
+        if (key == GLFW_KEY_1) { simulationMode = 0; resetRequested = true; std::cout << "Mode: Diffusion  (1)\n"; }
+        if (key == GLFW_KEY_2) { simulationMode = 1; resetRequested = true; std::cout << "Mode: Wave  (2)\n"; }
+        if (key == GLFW_KEY_3) { simulationMode = 2; resetRequested = true; std::cout << "Mode: Fluid Flow  (3)\n"; }
+        if (key == GLFW_KEY_4) { simulationMode = 3; resetRequested = true; std::cout << "Mode: Schrodinger  (4)\n"; }
     }
 }
 
 static void scrollCallback(GLFWwindow* w, double, double yoff)
 {
-    bool shift = (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-        glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
-    bool ctrl = (glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
-        glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
-    bool alt = (glfwGetKey(w, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
-        glfwGetKey(w, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
-
-    if (shift) {
-        cameraY = std::clamp(cameraY + (float)yoff * 0.05f, -5.0f, 5.0f);
-    }
-    else if (alt) {
-        heatRadius = std::clamp(heatRadius + (yoff > 0 ? 1 : -1), 1, 64);
-        std::cout << "Brush radius: " << heatRadius << "\n";
-    }
-    else if (ctrl) {
-        heatValue = std::clamp(heatValue + (float)yoff * 10.0f, 1.0f, 5000.0f);
-        std::cout << "Paint value: " << heatValue << "\n";
-    }
-    else {
-        zoom = std::clamp(zoom - (float)yoff * 0.15f, 0.5f, 10.0f);
-    }
+    bool shift = glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    bool ctrl = glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
+    bool alt = glfwGetKey(w, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;
+    if (shift) cameraY = std::clamp(cameraY + (float)yoff * 0.05f, -5.0f, 5.0f);
+    else if (alt) { heatRadius = std::clamp(heatRadius + (yoff > 0 ? 1 : -1), 1, 64); std::cout << "Brush radius: " << heatRadius << "\n"; }
+    else if (ctrl) { heatValue = std::clamp(heatValue + (float)yoff * 10.0f, 1.0f, 5000.0f); std::cout << "Paint value: " << heatValue << "\n"; }
+    else            zoom = std::clamp(zoom - (float)yoff * 0.15f, 0.5f, 10.0f);
 }
 
 static void mouseButtonCallback(GLFWwindow* w, int btn, int action, int)
 {
     if (btn == GLFW_MOUSE_BUTTON_RIGHT) {
         rot.dragging = (action == GLFW_PRESS);
-        if (rot.dragging)
-            glfwGetCursorPos(w, &rot.lastX, &rot.lastY);
+        if (rot.dragging) glfwGetCursorPos(w, &rot.lastX, &rot.lastY);
     }
-    if (btn == GLFW_MOUSE_BUTTON_LEFT)
-        heat.active = (action == GLFW_PRESS);
+    if (btn == GLFW_MOUSE_BUTTON_LEFT) {
+        heatActive = (action == GLFW_PRESS);
+        if (action == GLFW_PRESS) {
+            // Zero the delta so the first paint tick doesn't get a stale value.
+            heatDX = 0.0f;
+            heatDY = 0.0f;
+        }
+    }
 }
 
 static void cursorPosCallback(GLFWwindow*, double x, double y)
 {
+    // y is flipped to OpenGL convention (0 = bottom).
+    float newX = (float)x;
+    float newY = -(float)y + 800.0f;
+
     if (rot.dragging) {
-        float dx = (float)(x - rot.lastX);
-        float dy = (float)(y - rot.lastY);
+        float dx = newX - (float)rot.lastX;
+        float dy = (float)y - (float)rot.lastY;   // screen-space dy (unflipped)
         rot.spin -= dx * GlobeState::SENSITIVITY;
         rot.pitch += dy * GlobeState::SENSITIVITY;
-        // 0 = looking straight down (north pole), π-ε = looking straight up (south pole)
         rot.pitch = std::clamp(rot.pitch, 0.0f, 3.14159265f - 0.0001f);
         rot.lastX = x; rot.lastY = y;
     }
-    heat.x = x; heat.y = -y + 800;
+
+    // Accumulate delta since last frame.  Multiple callbacks can fire between
+    // frames (e.g. on high-refresh monitors), so we add rather than assign.
+    heatDX += newX - heatCurX;
+    heatDY += newY - heatCurY;
+    heatCurX = newX;
+    heatCurY = newY;
 }
 
-// Generic column-major 4x4 inverse (Cramer's rule).
+// =============================================================================
+// Math helpers
+// =============================================================================
 static void mat4Inverse(const float* m, float* out)
 {
     float inv[16];
@@ -492,85 +507,58 @@ static void mat4Inverse(const float* m, float* out)
     for (int i = 0; i < 16; i++) out[i] = inv[i] * det;
 }
 
-// Unproject screen position (OpenGL convention: y=0 at bottom) through MVP
-// to the z=0 world plane (the field surface). Returns false if ray misses.
 static bool unprojectToField(float sx, float sy, const float* MVP,
     float& worldX, float& worldY)
 {
     float invMVP[16];
     mat4Inverse(MVP, invMVP);
-
     float nx = 2.0f * sx / 800.0f - 1.0f;
     float ny = 2.0f * sy / 800.0f - 1.0f;
-
-    // Unproject clip-space point at near (-1) and far (+1) depths to world.
     auto unproj = [&](float nz, float out[3]) {
-        float clip[4] = { nx, ny, nz, 1.0f };
-        float w[4] = {};
-        for (int r = 0; r < 4; ++r)
-            for (int c = 0; c < 4; ++c)
-                w[r] += invMVP[c * 4 + r] * clip[c];
+        float clip[4] = { nx,ny,nz,1.0f }, w[4] = {};
+        for (int r = 0; r < 4; ++r) for (int c = 0; c < 4; ++c) w[r] += invMVP[c * 4 + r] * clip[c];
         float invW = (fabsf(w[3]) > 1e-8f) ? 1.0f / w[3] : 1.0f;
         out[0] = w[0] * invW; out[1] = w[1] * invW; out[2] = w[2] * invW;
         };
-
     float nearPt[3], farPt[3];
     unproj(-1.0f, nearPt);
     unproj(1.0f, farPt);
-
-    // Intersect ray with z=0 plane.
     float dz = farPt[2] - nearPt[2];
     if (fabsf(dz) < 1e-6f) return false;
     float t = -nearPt[2] / dz;
-
     worldX = nearPt[0] + t * (farPt[0] - nearPt[0]);
     worldY = nearPt[1] + t * (farPt[1] - nearPt[1]);
     return true;
 }
 
-// Turntable rotation: Rx(pitch) * Rz(spin)
-//   spin  — left/right drag, rotates around the field normal (Z)
-//   pitch — up/down drag, tilts the field toward/away from viewer
-//   North (field +Y) always stays pointing up on screen at any spin angle.
 static void buildGlobeMatrix(float spin, float pitch, float* m)
 {
-    float cs = cosf(spin), ss = sinf(spin);
-    float cp = cosf(pitch), sp = sinf(pitch);
-    // Column-major Rx(pitch) * Rz(spin)
-    m[0] = cs;      m[1] = -ss * cp;   m[2] = ss * sp;   m[3] = 0;
-    m[4] = ss;      m[5] = cs * cp;   m[6] = -cs * sp;   m[7] = 0;
-    m[8] = 0;       m[9] = sp;      m[10] = cp;     m[11] = 0;
-    m[12] = 0;       m[13] = 0;       m[14] = 0;       m[15] = 1;
+    float cs = cosf(spin), ss = sinf(spin), cp = cosf(pitch), sp = sinf(pitch);
+    m[0] = cs;  m[1] = -ss * cp; m[2] = ss * sp; m[3] = 0;
+    m[4] = ss;  m[5] = cs * cp; m[6] = -cs * sp; m[7] = 0;
+    m[8] = 0;   m[9] = sp;     m[10] = cp;    m[11] = 0;
+    m[12] = 0;  m[13] = 0;     m[14] = 0;     m[15] = 1;
 }
 
-// Column-major 4x4 multiply:  C = A * B
 static void matMul(const float* A, const float* B, float* C)
 {
-    for (int col = 0; col < 4; ++col)
-        for (int row = 0; row < 4; ++row) {
-            float s = 0;
-            for (int k = 0; k < 4; ++k) s += A[k * 4 + row] * B[col * 4 + k];
-            C[col * 4 + row] = s;
-        }
+    for (int col = 0; col < 4; ++col) for (int row = 0; row < 4; ++row) {
+        float s = 0; for (int k = 0; k < 4; ++k) s += A[k * 4 + row] * B[col * 4 + k]; C[col * 4 + row] = s;
+    }
 }
 
-// Standard OpenGL perspective matrix (column-major)
 static void buildPerspective(float fovY, float aspect, float near, float far, float* m)
 {
     float f = 1.0f / tanf(fovY * 0.5f);
     memset(m, 0, 64);
-    m[0] = f / aspect;
-    m[5] = f;
-    m[10] = (far + near) / (near - far);
-    m[11] = -1.0f;
+    m[0] = f / aspect; m[5] = f;
+    m[10] = (far + near) / (near - far); m[11] = -1.0f;
     m[14] = 2.0f * far * near / (near - far);
 }
 
-// Translation matrix (column-major)
 static void buildTranslation(float tx, float ty, float tz, float* m)
 {
-    memset(m, 0, 64);
-    m[0] = m[5] = m[10] = m[15] = 1.0f;
+    memset(m, 0, 64); m[0] = m[5] = m[10] = m[15] = 1.0f;
     m[12] = tx; m[13] = ty; m[14] = tz;
 }
 
@@ -609,7 +597,8 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(800, 800,
-        "Field Simulation (GPU) — 1:Diffusion  2:Wave  3:Schrodinger", nullptr, nullptr);
+        "Field Simulation (GPU) — 1:Diffusion  2:Wave  3:Fluid  4:Schrodinger",
+        nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
 
     glfwMakeContextCurrent(window);
@@ -642,7 +631,7 @@ int main()
 
     int uRotationU = glGetUniformLocation(fieldProg, "uRotation");
     int uFieldModeU = glGetUniformLocation(fieldProg, "uMode");
-    int uFieldResU = glGetUniformLocation(fieldProg, "uRes");   // ← new
+    int uFieldResU = glGetUniformLocation(fieldProg, "uRes");
 
     int uTxtOrigin = glGetUniformLocation(textProg, "uOrigin");
     int uTxtSize = glGetUniformLocation(textProg, "uCharSize");
@@ -664,21 +653,28 @@ int main()
     const float TARGET_STEP_DT = 1.0f / 120.0f;
 
     const float subDtDiff = std::min((h * h) / (4.0f * DIFFUSION) * 0.9f, TARGET_STEP_DT);
-    const float subDtWave = std::min((h / (std::sqrt(DIFFUSION) * std::sqrt(2.0f))) * 0.9f, TARGET_STEP_DT);
+    const float subDtWave = std::min((h / (sqrtf(DIFFUSION) * sqrtf(2.0f))) * 0.9f, TARGET_STEP_DT);
     const float subDtSchrod = 0.45f * h * h;
+    const float subDtFluid = TARGET_STEP_DT;
+
+    // FLUID_VEL_SCALE converts screen-pixel-delta to world velocity.
+    // With heatValue=100 and a 10 px/frame drag → 100 * 10 * 0.0005 = 0.5 world/s.
+    // The drag speed is naturally proportional because heatDX/heatDY encode
+    // pixels moved since the last frame — faster drag = bigger delta = more push.
+    const float FLUID_VEL_SCALE = 0.0005f;
 
     std::cout << "Resolution: " << N << "x" << N
-        << "  dt=" << subDtSchrod
+        << "  dt(schrod)=" << subDtSchrod
         << "\nControls:\n"
-        << "  1/2/3             — Diffusion / Wave / Schrodinger mode\n"
-        << "  Left-click+drag   — paint excitation\n"
-        << "  Scroll            — zoom in / out\n"
-        << "  Shift+Scroll      — camera up / down\n"
-        << "  Alt+Scroll        — change brush radius (cur: " << heatRadius << ")\n"
-        << "  Ctrl+Scroll       — change paint value (cur: " << heatValue << ")\n"
+        << "  1/2/3/4           — Diffusion / Wave / Fluid / Schrodinger\n"
+        << "  Left-click+drag   — paint / push fluid (speed ∝ drag speed)\n"
+        << "  Scroll            — zoom\n"
+        << "  Shift+Scroll      — camera Y\n"
+        << "  Alt+Scroll        — brush radius (" << heatRadius << ")\n"
+        << "  Ctrl+Scroll       — paint / push strength (" << heatValue << ")\n"
         << "  Right-click+drag  — rotate view\n"
         << "  Space             — pause / resume\n"
-        << "  R                 — reset field\n";
+        << "  R                 — reset\n";
 
     // ── Field SSBOs ───────────────────────────────────────────────────────────
     const int STRIDE = 10;
@@ -721,10 +717,7 @@ int main()
     glBindVertexArray(0);
 
     // ── Shared unit-quad VAO ──────────────────────────────────────────────────
-    float quadVerts[] = {
-        0,0, 1,0, 0,1,
-        1,0, 1,1, 0,1
-    };
+    float quadVerts[] = { 0,0, 1,0, 0,1,  1,0, 1,1, 0,1 };
     unsigned int quadVAO, quadVBO;
     glGenVertexArrays(1, &quadVAO); glGenBuffers(1, &quadVBO);
     glBindVertexArray(quadVAO);
@@ -734,7 +727,7 @@ int main()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
-    // ── UI layout constants ───────────────────────────────────────────────────
+    // ── UI layout ─────────────────────────────────────────────────────────────
     const float PX = 2.0f / 800.0f;
     const float CHAR_W = 20.0f * PX;
     const float CHAR_H = 30.0f * PX;
@@ -745,16 +738,20 @@ int main()
     const float TEXT_Y = 1.0f - MARGIN;
 
     const int groups = (N + 15) / 16;
-    int       current = 0;
-    float     simTime = 0.0f;
-    double    lastTime = glfwGetTime();
-    float     accumDiff = 0.0f;
-    float     accumWave = 0.0f;
-    float     accumSchrod = 0.0f;
+    int   current = 0;
+    float simTime = 0.0f;
+    double lastTime = glfwGetTime();
+    float accumDiff = 0.0f;
+    float accumWave = 0.0f;
+    float accumSchrod = 0.0f;
+    float accumFluid = 0.0f;
 
     // ── Main loop ─────────────────────────────────────────────────────────────
     while (!glfwWindowShouldClose(window))
     {
+        // ── Poll events FIRST so heatDX/heatDY are fresh before painting ──────
+        glfwPollEvents();
+
         // ── Wall-clock delta time ─────────────────────────────────────────────
         double nowTime = glfwGetTime();
         float  realDt = (float)(nowTime - lastTime);
@@ -764,17 +761,16 @@ int main()
         // ── Reset ─────────────────────────────────────────────────────────────
         if (resetRequested) {
             resetRequested = false;
-            simTime = 0.0f;
-            current = 0;
+            simTime = 0.0f; current = 0;
+            accumDiff = accumWave = accumSchrod = accumFluid = 0.0f;
             for (int b = 0; b < 2; ++b) {
                 glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[b]);
-                glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F,
-                    GL_RED, GL_FLOAT, nullptr);
+                glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
             }
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
 
-        // ── Build MVP early — needed for brush unprojection and rendering ────
+        // ── Build MVP ─────────────────────────────────────────────────────────
         float R[16], T[16], P[16], TR[16], MVP[16];
         buildGlobeMatrix(rot.spin, rot.pitch, R);
         buildTranslation(0.0f, cameraY, -zoom, T);
@@ -783,36 +779,61 @@ int main()
         matMul(P, TR, MVP);
 
         // ── Paint excitation ──────────────────────────────────────────────────
-        if (heat.active) {
-            // heat.y is already in OpenGL convention (0=bottom, 800=top)
+        if (heatActive) {
             float worldX, worldY;
-            int cx = N / 2, cy = N / 2;   // fallback: field centre
-            if (unprojectToField((float)heat.x, (float)heat.y, MVP, worldX, worldY)) {
-                // field spans [-1,+1] in world XY → map to grid indices
+            int cx = N / 2, cy = N / 2;
+            if (unprojectToField(heatCurX, heatCurY, MVP, worldX, worldY)) {
                 cx = (int)((worldX + 1.0f) * 0.5f * N);
                 cy = (int)((worldY + 1.0f) * 0.5f * N);
             }
+
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
-            for (int dy = -heatRadius; dy <= heatRadius; ++dy)
-                for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
-                    if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
-                    int gi = cy + dy, gj = cx + dx;
-                    if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
-                    GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
-                    glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &heatValue);
+
+            if (simulationMode == 2) {
+                // Fluid: velocity proportional to drag speed (heatDX/heatDY
+                // are pixels moved this frame — larger = faster drag = more push).
+                // Only paint when actually moving to avoid wiping existing flow.
+                if (fabsf(heatDX) > 0.1f || fabsf(heatDY) > 0.1f) {
+                    float velX = heatDX * heatValue * FLUID_VEL_SCALE;
+                    float velY = heatDY * heatValue * FLUID_VEL_SCALE;
+                    float vel[2] = { velX, velY };
+                    for (int dy = -heatRadius; dy <= heatRadius; ++dy)
+                        for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
+                            if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
+                            int gi = cy + dy, gj = cx + dx;
+                            if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
+                            GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
+                            glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, 2 * sizeof(float), vel);
+                        }
                 }
+            }
+            else {
+                // Scalar modes: paint heatValue into FX.
+                for (int dy = -heatRadius; dy <= heatRadius; ++dy)
+                    for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
+                        if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
+                        int gi = cy + dy, gj = cx + dx;
+                        if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
+                        GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
+                        glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &heatValue);
+                    }
+            }
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
+
+        // Delta consumed — clear for next frame.
+        heatDX = 0.0f;
+        heatDY = 0.0f;
 
         // ── Compute pass ──────────────────────────────────────────────────────
         if (!paused) {
             glUseProgram(computeProg);
             glUniform1i(uResU, N);
             glUniform1f(uInvH2U, invH2);
-            glUniform1f(uDiffusionU, DIFFUSION);
 
             if (simulationMode == 0) {
                 accumDiff += simBudget;
+                glUniform1f(uDiffusionU, DIFFUSION);
                 glUniform1i(uComputeModeU, 0);
                 glUniform1f(uDtU, subDtDiff);
                 while (accumDiff >= subDtDiff) {
@@ -820,13 +841,12 @@ int main()
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-                    current = 1 - current;
-                    accumDiff -= subDtDiff;
-                    simTime += subDtDiff;
+                    current = 1 - current; accumDiff -= subDtDiff; simTime += subDtDiff;
                 }
             }
             else if (simulationMode == 1) {
                 accumWave += simBudget;
+                glUniform1f(uDiffusionU, DIFFUSION);
                 glUniform1i(uComputeModeU, 1);
                 glUniform1f(uDtU, subDtWave);
                 while (accumWave >= subDtWave) {
@@ -834,31 +854,39 @@ int main()
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-                    current = 1 - current;
-                    accumWave -= subDtWave;
-                    simTime += subDtWave;
+                    current = 1 - current; accumWave -= subDtWave; simTime += subDtWave;
                 }
             }
-            else {
-                accumSchrod += simBudget;
-                glUniform1f(uDtU, subDtSchrod);
-                while (accumSchrod >= subDtSchrod) {
-                    // Pass A: update Re from Im
-                    glUniform1i(uComputeModeU, 2);
+            else if (simulationMode == 2) {
+                accumFluid += simBudget;
+                glUniform1f(uDiffusionU, 0.001f);   // kinematic viscosity
+                glUniform1i(uComputeModeU, 2);
+                glUniform1f(uDtU, subDtFluid);
+                while (accumFluid >= subDtFluid) {
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-                    current = 1 - current;
-                    // Pass B: update Im from (updated) Re
+                    current = 1 - current; accumFluid -= subDtFluid; simTime += subDtFluid;
+                }
+            }
+            else {
+                accumSchrod += simBudget;
+                glUniform1f(uDiffusionU, DIFFUSION);
+                glUniform1f(uDtU, subDtSchrod);
+                while (accumSchrod >= subDtSchrod) {
                     glUniform1i(uComputeModeU, 3);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
                     current = 1 - current;
-                    accumSchrod -= subDtSchrod;
-                    simTime += subDtSchrod;
+                    glUniform1i(uComputeModeU, 4);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+                    glDispatchCompute(groups, groups, 1);
+                    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                    current = 1 - current; accumSchrod -= subDtSchrod; simTime += subDtSchrod;
                 }
             }
         }
@@ -871,7 +899,7 @@ int main()
         glUseProgram(fieldProg);
         glUniformMatrix4fv(uRotationU, 1, GL_FALSE, MVP);
         glUniform1i(uFieldModeU, simulationMode);
-        glUniform1i(uFieldResU, N);                  // ← pass resolution
+        glUniform1i(uFieldResU, N);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
         glBindVertexArray(fieldVAO);
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
@@ -905,7 +933,7 @@ int main()
 
         // — Mode label —
         uint32_t modeBuf[3];
-        int numMode = formatModeLabel(simulationMode, modeBuf);
+        int   numMode = formatModeLabel(simulationMode, modeBuf);
         float modeW = CHAR_W + (numMode - 1) * CHAR_ADV;
         float modeY = TEXT_Y - CHAR_H - PAD - MARGIN;
 
@@ -924,20 +952,22 @@ int main()
         glUniform1uiv(uTxtChars, numMode, modeBuf);
         if (simulationMode == 0) glUniform4f(uTxtColor, 1.0f, 0.65f, 0.0f, 1.0f);
         else if (simulationMode == 1) glUniform4f(uTxtColor, 0.0f, 1.0f, 1.0f, 1.0f);
-        else                          glUniform4f(uTxtColor, 1.0f, 0.3f, 1.0f, 1.0f);
+        else if (simulationMode == 2) glUniform4f(uTxtColor, 0.2f, 1.0f, 0.4f, 1.0f);
+        else                        glUniform4f(uTxtColor, 1.0f, 0.3f, 1.0f, 1.0f);
         glBindVertexArray(quadVAO);
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numMode);
 
         glDisable(GL_BLEND);
         glfwSwapBuffers(window);
-        glfwPollEvents();
+        // NOTE: glfwPollEvents() is at the TOP of the loop so heatDX/heatDY
+        // are always fresh (non-zero) by the time painting runs.
     }
 
     glDeleteBuffers(2, ssbo);
     glDeleteBuffers(1, &fieldVBO);  glDeleteVertexArrays(1, &fieldVAO);
     glDeleteBuffers(1, &quadVBO);   glDeleteVertexArrays(1, &quadVAO);
-    glDeleteProgram(computeProg);   glDeleteProgram(fieldProg);
-    glDeleteProgram(textProg);      glDeleteProgram(rectProg);
+    glDeleteProgram(computeProg);  glDeleteProgram(fieldProg);
+    glDeleteProgram(textProg);     glDeleteProgram(rectProg);
     glfwTerminate();
     return 0;
 }
