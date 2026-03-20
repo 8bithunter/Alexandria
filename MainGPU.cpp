@@ -211,8 +211,8 @@ void main()
         float newVy = bilinear(px, py, FY);
         newVx += uDiffusion * laplacian(r,l,u,d,c,FX) * uDt;
         newVy += uDiffusion * laplacian(r,l,u,d,c,FY) * uDt;
-        newVx *= 0.9995;
-        newVy *= 0.9995;
+        // newVx *= 0.9995; viscosity
+        // newVy *= 0.9995;
         outData[base+FX] = newVx;
         outData[base+FY] = newVy;
         outData[base+FZ] = 0.0;
@@ -256,7 +256,7 @@ layout(std430, binding = 0) readonly buffer Field { float field[]; };
 uniform mat4 uRotation;
 uniform int  uMode;
 uniform int  uRes;
-out vec3 vColor;
+out vec4 vColor;
 
 vec3 hueToRgb(float h)
 {
@@ -298,33 +298,47 @@ void main()
     vec3 ty = normalize(vec3(0.0, 2.0, (hu-hd)*zScale));
     vec3 N  = normalize(cross(tx, ty));
 
-    float height, hue;
+    float height, hue, value, alpha;
     if (uMode >= 2) {
         float re  = field[id*STRIDE + 0];
         float im  = field[id*STRIDE + 1];
         float mag = sqrt(re*re + im*im);
-        if (uMode == 2) {height = atan(mag) / 3.14159265 - 0.25;}
-        else {height = atan(mag * 0.02) / 3.14159265 - 0.25;}
-        hue    = atan(im, re) / (2.0*3.14159265) + 0.5;
-    } else {
+        if (uMode == 2) 
+        {
+            height = atan(2 * mag) / 3.14159265 - 0.5;
+            value = 2 * atan(2 * mag) / 3.14159265;
+            hue = atan(-im, -re) / (2 * 3.14159265) + 0.5;
+        }
+        else 
+        {
+        height = atan(mag * 0.02) / 3.14159265 - 0.25;
+        value = 1.0;
+        hue = atan(im, re) / (2.0*3.14159265) + 0.5;
+        }
+        alpha = 1.0;
+    } 
+    else 
+    {
         float fx = field[id*STRIDE];
         height = atan( fx*0.02) / 3.14159265 - 0.5;
         hue    = atan(-fx*0.02) / 3.14159265 + 0.5;
+        alpha = 1.0;
+        value = 1.0;
     }
 
     gl_Position = uRotation * vec4(aPos, height, 1.0);
 
     vec3 lightDir = normalize(vec3(-0.4, 0.6, 1.0));
     float light = 0.25 + 0.75 * abs(dot(N, lightDir));
-    vColor = hueToRgb(hue) * light;
+    vColor = vec4(hueToRgb(hue) * light * value, alpha);
 }
 )GLSL";
 
 static const char* fieldFragSrc = R"GLSL(
 #version 430 core
-in  vec3 vColor;
+in  vec4 vColor;
 out vec4 FragColor;
-void main() { FragColor = vec4(vColor, 1.0); }
+void main() { FragColor = vColor; }
 )GLSL";
 
 // =============================================================================
@@ -790,24 +804,29 @@ int main()
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
 
             if (simulationMode == 2) {
-                // Fluid: velocity proportional to drag speed (heatDX/heatDY
-                // are pixels moved this frame — larger = faster drag = more push).
-                // Only paint when actually moving to avoid wiping existing flow.
                 if (fabsf(heatDX) > 0.1f || fabsf(heatDY) > 0.1f) {
-                    float velX = heatDX * heatValue * FLUID_VEL_SCALE;
-                    float velY = heatDY * heatValue * FLUID_VEL_SCALE;
-                    float vel[2] = { velX, velY };
-                    for (int dy = -heatRadius; dy <= heatRadius; ++dy)
-                        for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
-                            if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
-                            int gi = cy + dy, gj = cx + dx;
-                            if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
-                            GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
-                            glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, 2 * sizeof(float), vel);
-                        }
+                    // Unproject current and previous screen positions → world-space drag vector.
+                    // This naturally accounts for camera spin and pitch.
+                    float wx0, wy0, wx1, wy1;
+                    bool ok0 = unprojectToField(heatCurX, heatCurY, MVP, wx0, wy0);
+                    bool ok1 = unprojectToField(heatCurX - heatDX, heatCurY - heatDY, MVP, wx1, wy1);
+                    if (ok0 && ok1) {
+                        float velX = (wx0 - wx1) * heatValue * 0.1f;
+                        float velY = (wy0 - wy1) * heatValue * 0.1f;
+                        float vel[2] = { velX, velY };
+                        for (int dy = -heatRadius; dy <= heatRadius; ++dy)
+                            for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
+                                if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
+                                int gi = cy + dy, gj = cx + dx;
+                                if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
+                                GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
+                                glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, 2 * sizeof(float), vel);
+                            }
+                    }
                 }
             }
-            else {
+            else 
+            {
                 // Scalar modes: paint heatValue into FX.
                 for (int dy = -heatRadius; dy <= heatRadius; ++dy)
                     for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
@@ -896,6 +915,11 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        //glDepthMask(simulationMode == 2 ? GL_FALSE : GL_TRUE); for transparency stuff
+        glDepthMask(GL_TRUE);
+
         glUseProgram(fieldProg);
         glUniformMatrix4fv(uRotationU, 1, GL_FALSE, MVP);
         glUniform1i(uFieldModeU, simulationMode);
@@ -903,6 +927,8 @@ int main()
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
         glBindVertexArray(fieldVAO);
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
+
+        glDepthMask(GL_TRUE);
 
         // ── 2-D overlay ───────────────────────────────────────────────────────
         glDisable(GL_DEPTH_TEST);
