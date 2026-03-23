@@ -3,14 +3,18 @@
 // Requires OpenGL 4.3 (compute shaders + SSBOs)
 //
 // Simulation modes (keys 1 / 2 / 3 / 4):
-//   1 – Diffusion   : ∂u/∂t = D ∇²u
-//   2 – Wave        : ∂²u/∂t² = c² ∇²u
-//   3 – Fluid Flow  : semi-Lagrangian advection + viscosity
-//       Drag cursor to push fluid; speed proportional to drag speed
-//       hue = flow direction, height = speed magnitude
-//   4 – Schrödinger : i ∂ψ/∂t = –½ ∇²ψ   (ħ = m = 1)
-//       FX = Re(ψ),  FY = Im(ψ)
-//       height = |ψ|,  hue = arg(ψ)
+//   1 – Diffusion      : ∂u/∂t = D ∇²u
+//   2 – Wave           : ∂²u/∂t² = c² ∇²u
+//   3 – Fluid Flow     : full incompressible Navier-Stokes
+//         ∂u/∂t + (u·∇)u = –∇p + ν∇²u,   ∇·u = 0
+//         Steps per sub-tick:
+//           (a) Semi-Lagrangian advection + viscous diffusion  → u*
+//           (b) Divergence     : compute ∇·u* → ssboDiv
+//           (c) Jacobi solve   : ∇²p = ∇·u*/dt  (JACOBI_ITERS iterations)
+//           (d) Project        : u = u* − dt ∇p
+//         Drag cursor to push fluid; hue = direction, height = speed.
+//   4 – Schrödinger    : i ∂ψ/∂t = –½ ∇²ψ   (ħ = m = 1)
+//         FX = Re(ψ),  FY = Im(ψ),  height = |ψ|,  hue = arg(ψ)
 //
 // Other controls:
 //   Left-click+drag  – paint excitation (fluid: pushes in drag direction)
@@ -34,6 +38,7 @@
 
 static constexpr int   RES = 200;
 static constexpr float DIFFUSION = 0.01f;
+static constexpr int   JACOBI_ITERS = 20;   // Jacobi iterations per NS sub-step
 
 // simulationMode:  0=diffusion  1=wave  2=fluid  3=schrödinger
 static int simulationMode = 0;
@@ -67,18 +72,10 @@ static const uint32_t FONT[] = {
     0x8 | (0x8 << 4) | (0x8 << 8) | (0x8 << 12) | (0x8 << 16) | (0xF << 20),  // 21  'L'
 };
 // clang-format on
-static constexpr int GLYPH_DOT = 10;
-static constexpr int GLYPH_S = 11;
-static constexpr int GLYPH_SPACE = 12;
-static constexpr int GLYPH_D = 13;
-static constexpr int GLYPH_I = 14;
-static constexpr int GLYPH_F = 15;
-static constexpr int GLYPH_W = 16;
-static constexpr int GLYPH_A = 17;
-static constexpr int GLYPH_V = 18;
-static constexpr int GLYPH_C = 19;
-static constexpr int GLYPH_H = 20;
-static constexpr int GLYPH_L = 21;
+static constexpr int GLYPH_DOT = 10, GLYPH_S = 11, GLYPH_SPACE = 12;
+static constexpr int GLYPH_D = 13, GLYPH_I = 14, GLYPH_F = 15;
+static constexpr int GLYPH_W = 16, GLYPH_A = 17, GLYPH_V = 18;
+static constexpr int GLYPH_C = 19, GLYPH_H = 20, GLYPH_L = 21;
 static constexpr int GLYPH_O = 0;
 static constexpr int FONT_COUNT = 22;
 
@@ -91,8 +88,7 @@ static int formatSimTime(float t, uint32_t* out, int maxOut)
     uint32_t digits[8]; int nd = 0;
     if (intPart == 0) { digits[nd++] = 0; }
     else {
-        int tmp = intPart;
-        while (tmp > 0 && nd < 7) { digits[nd++] = tmp % 10; tmp /= 10; }
+        int tmp = intPart; while (tmp > 0 && nd < 7) { digits[nd++] = tmp % 10; tmp /= 10; }
         for (int i = 0, j = nd - 1; i < j; ++i, --j) std::swap(digits[i], digits[j]);
     }
     int n = 0;
@@ -102,7 +98,6 @@ static int formatSimTime(float t, uint32_t* out, int maxOut)
     if (n < maxOut) out[n++] = GLYPH_S;
     return n;
 }
-
 static int formatModeLabel(int mode, uint32_t* out)
 {
     if (mode == 0) { out[0] = GLYPH_D; out[1] = GLYPH_I; out[2] = GLYPH_F; }
@@ -114,7 +109,29 @@ static int formatModeLabel(int mode, uint32_t* out)
 
 // =============================================================================
 // Compute shader
-// uMode: 0=diffusion  1=wave  2=fluid  3=schrod_re  4=schrod_im
+//
+// Bindings:
+//   binding 0  BufIn  – always readonly  (main field OR flat pressure)
+//   binding 1  BufOut – always writeonly (main field OR flat pressure OR flat div)
+//   binding 2  BufAux – always readonly  (flat pressure OR flat div)
+//              Unused modes still have something bound here (ssboDiv) so the
+//              binding point is never left unbound.
+//
+// uMode:
+//   0 – Diffusion
+//   1 – Wave
+//   2 – NS advect + viscous diffusion  → u*  (velocity field, STRIDE layout)
+//   3 – Schrödinger A  (∂Re/∂t = +½ ∇²Im)
+//   4 – Schrödinger B  (∂Im/∂t = –½ ∇²Re)
+//   5 – Jacobi pressure solve
+//         in[0]=p_in(flat), out[1]=p_out(flat), aux[2]=div(flat)
+//         Solves one Jacobi step of  ∇²p = div/dt
+//   6 – Pressure projection
+//         in[0]=u*(STRIDE), out[1]=u(STRIDE), aux[2]=p(flat)
+//         u = u* – dt * ∇p
+//   7 – Divergence
+//         in[0]=u*(STRIDE), out[1]=div(flat)
+//         div = ∂vx/∂x + ∂vy/∂y  (central differences)
 // =============================================================================
 static const char* computeSrc = R"GLSL(
 #version 430 core
@@ -133,6 +150,7 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(std430, binding = 0) readonly  buffer BufIn  { float inData[];  };
 layout(std430, binding = 1) writeonly buffer BufOut { float outData[]; };
+layout(std430, binding = 2) readonly  buffer BufAux { float auxData[]; };
 
 uniform int   uRes;
 uniform float uInvH2;
@@ -149,13 +167,11 @@ float laplacian(int r, int l, int u, int d, int c, int comp)
 
 float bilinear(float fx, float fy, int comp)
 {
-    fx = clamp(fx, 0.0, float(uRes - 1));
-    fy = clamp(fy, 0.0, float(uRes - 1));
+    fx = clamp(fx, 0.0, float(uRes-1));
+    fy = clamp(fy, 0.0, float(uRes-1));
     int x0 = int(fx), y0 = int(fy);
-    int x1 = min(x0 + 1, uRes - 1);
-    int y1 = min(y0 + 1, uRes - 1);
-    float tx = fx - float(x0);
-    float ty = fy - float(y0);
+    int x1 = min(x0+1, uRes-1), y1 = min(y0+1, uRes-1);
+    float tx = fx - float(x0), ty = fy - float(y0);
     float v00 = get(y0*uRes+x0, comp);
     float v10 = get(y0*uRes+x1, comp);
     float v01 = get(y1*uRes+x0, comp);
@@ -167,13 +183,15 @@ void main()
 {
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
     if (id.x >= uRes || id.y >= uRes) return;
-    int c = id.y*uRes + id.x;
-    int r = id.y*uRes + (id.x+1) % uRes;
-    int l = id.y*uRes + (id.x-1+uRes) % uRes;
-    int u = ((id.y+1) % uRes)*uRes + id.x;
-    int d = ((id.y-1+uRes) % uRes)*uRes + id.x;
+
+    int c    = id.y*uRes + id.x;
+    int r    = id.y*uRes + (id.x+1) % uRes;
+    int l    = id.y*uRes + (id.x-1+uRes) % uRes;
+    int u    = ((id.y+1) % uRes)*uRes + id.x;
+    int d    = ((id.y-1+uRes) % uRes)*uRes + id.x;
     int base = c * STRIDE;
 
+    // ── Diffusion ─────────────────────────────────────────────────────────────
     if (uMode == 0) {
         float vx = uDiffusion * laplacian(r,l,u,d,c,FX);
         float vy = uDiffusion * laplacian(r,l,u,d,c,FY);
@@ -185,6 +203,7 @@ void main()
         outData[base+AX] = 0;  outData[base+AY] = 0;  outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
+    // ── Wave ──────────────────────────────────────────────────────────────────
     else if (uMode == 1) {
         float ax = uDiffusion * laplacian(r,l,u,d,c,FX);
         float ay = uDiffusion * laplacian(r,l,u,d,c,FY);
@@ -199,20 +218,22 @@ void main()
         outData[base+AX] = ax; outData[base+AY] = ay; outData[base+AZ] = az;
         outData[base+9]  = 0.0;
     }
+    // ── NS: Advect + viscous diffusion  →  u*  ────────────────────────────────
+    // FX = velocity x,  FY = velocity y  (world units per second).
+    // Semi-Lagrangian back-trace + explicit viscosity diffusion.
     else if (uMode == 2) {
-        // Semi-Lagrangian advection + viscous diffusion.
-        // FX = velocity x,  FY = velocity y  (world-space units per second)
-        float h   = 2.0 / float(uRes - 1);
-        float vx  = get(c, FX);
-        float vy  = get(c, FY);
-        float px  = float(id.x) - vx * uDt / h;
-        float py  = float(id.y) - vy * uDt / h;
+        float h    = 2.0 / float(uRes-1);
+        float vx   = get(c, FX);
+        float vy   = get(c, FY);
+        float px   = float(id.x) - vx * uDt / h;
+        float py   = float(id.y) - vy * uDt / h;
         float newVx = bilinear(px, py, FX);
         float newVy = bilinear(px, py, FY);
+        // Explicit viscous diffusion applied to the old field
         newVx += uDiffusion * laplacian(r,l,u,d,c,FX) * uDt;
         newVy += uDiffusion * laplacian(r,l,u,d,c,FY) * uDt;
-        // newVx *= 0.9995; viscosity
-        // newVy *= 0.9995;
+        newVx *= 0.9998;   // mild global damping for stability
+        newVy *= 0.9998;
         outData[base+FX] = newVx;
         outData[base+FY] = newVy;
         outData[base+FZ] = 0.0;
@@ -220,9 +241,9 @@ void main()
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
+    // ── Schrödinger A: ∂Re/∂t = +½ ∇²Im ─────────────────────────────────────
     else if (uMode == 3) {
-        // Schrödinger pass A: ∂Re/∂t = +½ ∇²Im
-        float lapIm = laplacian(r,l,u,d,c,FY);
+        float lapIm = uDiffusion * laplacian(r,l,u,d,c,FY);
         outData[base+FX] = get(c,FX) - 0.5*lapIm*uDt;
         outData[base+FY] = get(c,FY);
         outData[base+FZ] = get(c,FZ);
@@ -230,9 +251,9 @@ void main()
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
-    else {
-        // Schrödinger pass B: ∂Im/∂t = –½ ∇²Re
-        float lapRe = laplacian(r,l,u,d,c,FX);
+    // ── Schrödinger B: ∂Im/∂t = –½ ∇²Re ─────────────────────────────────────
+    else if (uMode == 4) {
+        float lapRe = uDiffusion * laplacian(r,l,u,d,c,FX);
         outData[base+FX] = get(c,FX);
         outData[base+FY] = get(c,FY) + 0.5*lapRe*uDt;
         outData[base+FZ] = get(c,FZ);
@@ -240,12 +261,53 @@ void main()
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
+    // ── Jacobi: one step of  ∇²p = div/dt  ───────────────────────────────────
+    // binding 0: p_in  (flat N*N floats)
+    // binding 1: p_out (flat N*N floats)
+    // binding 2: div   (flat N*N floats)
+    //
+    // Jacobi iteration for the 5-point stencil:
+    //   p_new = (p[r]+p[l]+p[u]+p[d] – h²·div/dt) / 4
+    else if (uMode == 5) {
+        float h   = 2.0 / float(uRes-1);
+        float pR  = inData[r];
+        float pL  = inData[l];
+        float pU  = inData[u];
+        float pD  = inData[d];
+        float div = auxData[c];
+        outData[c] = (pR + pL + pU + pD - h*h * div / uDt) * 0.25;
+    }
+    // ── Pressure projection: u = u* – dt ∇p ─────────────────────────────────
+    // binding 0: u* velocity (STRIDE layout)
+    // binding 1: u  velocity (STRIDE layout)
+    // binding 2: p  pressure (flat N*N floats)
+    //
+    // Central-difference gradient:  ∂p/∂x ≈ (p[r]–p[l]) / (2h)
+    else if (uMode == 6) {
+        float invTwoH = float(uRes-1) * 0.25;   // 1/(2h),  h=2/(N-1)
+        float dpx = (auxData[r] - auxData[l]) * invTwoH;
+        float dpy = (auxData[u] - auxData[d]) * invTwoH;
+        // Copy all STRIDE components, then overwrite the velocity components.
+        for (int i = 0; i < STRIDE; i++) outData[base+i] = inData[base+i];
+        outData[base+FX] = get(c,FX) - uDt * dpx;
+        outData[base+FY] = get(c,FY) - uDt * dpy;
+    }
+    // ── Divergence: div = ∂vx/∂x + ∂vy/∂y  ──────────────────────────────────
+    // binding 0: velocity (STRIDE layout)
+    // binding 1: div      (flat N*N floats)
+    //
+    // Central-difference:  ∂vx/∂x ≈ (vx[r]–vx[l]) / (2h)
+    else if (uMode == 7) {
+        float invTwoH = float(uRes-1) * 0.25;
+        float dvx = (get(r,FX) - get(l,FX)) * invTwoH;
+        float dvy = (get(u,FY) - get(d,FY)) * invTwoH;
+        outData[c] = dvx + dvy;
+    }
 }
 )GLSL";
 
 // =============================================================================
 // Field render shaders
-// uMode >= 2 → complex-pair coloring (hue = atan2, height = magnitude)
 // =============================================================================
 static const char* fieldVertSrc = R"GLSL(
 #version 430 core
@@ -303,27 +365,27 @@ void main()
         float re  = field[id*STRIDE + 0];
         float im  = field[id*STRIDE + 1];
         float mag = sqrt(re*re + im*im);
-        if (uMode == 2) 
+        if (uMode == 2)
         {
-            height = atan(2 * mag) / 3.14159265 - 0.5;
-            value = 2 * atan(2 * mag) / 3.14159265;
-            hue = atan(-im, -re) / (2 * 3.14159265) + 0.5;
+            height = atan(2.0 * mag) / 3.14159265 - 0.5;
+            value  = 2.0 * atan(2.0 * mag) / 3.14159265;
+            hue    = atan(-im, -re) / (2.0 * 3.14159265) + 0.5;
         }
-        else 
+        else
         {
-        height = atan(mag * 0.02) / 3.14159265 - 0.25;
-        value = 1.0;
-        hue = atan(im, re) / (2.0*3.14159265) + 0.5;
+            height = atan(mag * 0.02) / 3.14159265 - 0.25;
+            value  = 1.0;
+            hue    = atan(im, re) / (2.0*3.14159265) + 0.5;
         }
         alpha = 1.0;
-    } 
-    else 
+    }
+    else
     {
         float fx = field[id*STRIDE];
         height = atan( fx*0.02) / 3.14159265 - 0.5;
         hue    = atan(-fx*0.02) / 3.14159265 + 0.5;
-        alpha = 1.0;
-        value = 1.0;
+        alpha  = 1.0;
+        value  = 1.0;
     }
 
     gl_Position = uRotation * vec4(aPos, height, 1.0);
@@ -406,21 +468,14 @@ void main() { FragColor = uRectColor; }
 struct GlobeState {
     bool dragging = false;
     double lastX = 0, lastY = 0;
-    float spin = 0.0f;
-    float pitch = 0.5f;
+    float spin = 0.0f, pitch = 0.5f;
     static constexpr float SENSITIVITY = 0.008f;
 };
 static GlobeState rot;
 
-// Cursor position (OpenGL convention: y=0 at bottom) and per-frame delta.
-// heatDX/heatDY are accumulated in cursorPosCallback and consumed once per
-// frame in the paint section, then cleared.
 static bool  heatActive = false;
-static float heatCurX = 0.0f;
-static float heatCurY = 0.0f;   // OpenGL y (0 = bottom)
-static float heatDX = 0.0f;
-static float heatDY = 0.0f;
-
+static float heatCurX = 0.0f, heatCurY = 0.0f;
+static float heatDX = 0.0f, heatDY = 0.0f;
 static float heatValue = 100.0f;
 static int   heatRadius = 5;
 static float zoom = 2.5f;
@@ -436,10 +491,10 @@ static void keyCallback(GLFWwindow*, int key, int, int action, int)
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) paused = !paused;
     if (key == GLFW_KEY_R && action == GLFW_PRESS) resetRequested = true;
     if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_1) { simulationMode = 0; resetRequested = true; std::cout << "Mode: Diffusion  (1)\n"; }
-        if (key == GLFW_KEY_2) { simulationMode = 1; resetRequested = true; std::cout << "Mode: Wave  (2)\n"; }
-        if (key == GLFW_KEY_3) { simulationMode = 2; resetRequested = true; std::cout << "Mode: Fluid Flow  (3)\n"; }
-        if (key == GLFW_KEY_4) { simulationMode = 3; resetRequested = true; std::cout << "Mode: Schrodinger  (4)\n"; }
+        if (key == GLFW_KEY_1) { simulationMode = 0; resetRequested = true; std::cout << "Mode: Diffusion\n"; }
+        if (key == GLFW_KEY_2) { simulationMode = 1; resetRequested = true; std::cout << "Mode: Wave\n"; }
+        if (key == GLFW_KEY_3) { simulationMode = 2; resetRequested = true; std::cout << "Mode: Fluid (full NS)\n"; }
+        if (key == GLFW_KEY_4) { simulationMode = 3; resetRequested = true; std::cout << "Mode: Schrodinger\n"; }
     }
 }
 
@@ -448,10 +503,10 @@ static void scrollCallback(GLFWwindow* w, double, double yoff)
     bool shift = glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
     bool ctrl = glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
     bool alt = glfwGetKey(w, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;
-    if (shift) cameraY = std::clamp(cameraY + (float)yoff * 0.05f, -5.0f, 5.0f);
+    if (shift)      cameraY = std::clamp(cameraY + (float)yoff * 0.05f, -5.0f, 5.0f);
     else if (alt) { heatRadius = std::clamp(heatRadius + (yoff > 0 ? 1 : -1), 1, 64); std::cout << "Brush radius: " << heatRadius << "\n"; }
     else if (ctrl) { heatValue = std::clamp(heatValue + (float)yoff * 10.0f, 1.0f, 5000.0f); std::cout << "Paint value: " << heatValue << "\n"; }
-    else            zoom = std::clamp(zoom - (float)yoff * 0.15f, 0.5f, 10.0f);
+    else             zoom = std::clamp(zoom - (float)yoff * 0.15f, 0.5f, 10.0f);
 }
 
 static void mouseButtonCallback(GLFWwindow* w, int btn, int action, int)
@@ -462,31 +517,22 @@ static void mouseButtonCallback(GLFWwindow* w, int btn, int action, int)
     }
     if (btn == GLFW_MOUSE_BUTTON_LEFT) {
         heatActive = (action == GLFW_PRESS);
-        if (action == GLFW_PRESS) {
-            // Zero the delta so the first paint tick doesn't get a stale value.
-            heatDX = 0.0f;
-            heatDY = 0.0f;
-        }
+        if (action == GLFW_PRESS) { heatDX = 0.0f; heatDY = 0.0f; }
     }
 }
 
 static void cursorPosCallback(GLFWwindow*, double x, double y)
 {
-    // y is flipped to OpenGL convention (0 = bottom).
     float newX = (float)x;
     float newY = -(float)y + 800.0f;
-
     if (rot.dragging) {
         float dx = newX - (float)rot.lastX;
-        float dy = (float)y - (float)rot.lastY;   // screen-space dy (unflipped)
+        float dy = (float)y - (float)rot.lastY;
         rot.spin -= dx * GlobeState::SENSITIVITY;
         rot.pitch += dy * GlobeState::SENSITIVITY;
         rot.pitch = std::clamp(rot.pitch, 0.0f, 3.14159265f - 0.0001f);
         rot.lastX = x; rot.lastY = y;
     }
-
-    // Accumulate delta since last frame.  Multiple callbacks can fire between
-    // frames (e.g. on high-refresh monitors), so we add rather than assign.
     heatDX += newX - heatCurX;
     heatDY += newY - heatCurY;
     heatCurX = newX;
@@ -535,8 +581,7 @@ static bool unprojectToField(float sx, float sy, const float* MVP,
         out[0] = w[0] * invW; out[1] = w[1] * invW; out[2] = w[2] * invW;
         };
     float nearPt[3], farPt[3];
-    unproj(-1.0f, nearPt);
-    unproj(1.0f, farPt);
+    unproj(-1.0f, nearPt); unproj(1.0f, farPt);
     float dz = farPt[2] - nearPt[2];
     if (fabsf(dz) < 1e-6f) return false;
     float t = -nearPt[2] / dz;
@@ -549,27 +594,23 @@ static void buildGlobeMatrix(float spin, float pitch, float* m)
 {
     float cs = cosf(spin), ss = sinf(spin), cp = cosf(pitch), sp = sinf(pitch);
     m[0] = cs;  m[1] = -ss * cp; m[2] = ss * sp; m[3] = 0;
-    m[4] = ss;  m[5] = cs * cp; m[6] = -cs * sp; m[7] = 0;
-    m[8] = 0;   m[9] = sp;     m[10] = cp;    m[11] = 0;
-    m[12] = 0;  m[13] = 0;     m[14] = 0;     m[15] = 1;
+    m[4] = ss;  m[5] = cs * cp;  m[6] = -cs * sp; m[7] = 0;
+    m[8] = 0;   m[9] = sp;     m[10] = cp;   m[11] = 0;
+    m[12] = 0;  m[13] = 0;     m[14] = 0;    m[15] = 1;
 }
-
 static void matMul(const float* A, const float* B, float* C)
 {
     for (int col = 0; col < 4; ++col) for (int row = 0; row < 4; ++row) {
         float s = 0; for (int k = 0; k < 4; ++k) s += A[k * 4 + row] * B[col * 4 + k]; C[col * 4 + row] = s;
     }
 }
-
 static void buildPerspective(float fovY, float aspect, float near, float far, float* m)
 {
     float f = 1.0f / tanf(fovY * 0.5f);
-    memset(m, 0, 64);
-    m[0] = f / aspect; m[5] = f;
+    memset(m, 0, 64); m[0] = f / aspect; m[5] = f;
     m[10] = (far + near) / (near - far); m[11] = -1.0f;
     m[14] = 2.0f * far * near / (near - far);
 }
-
 static void buildTranslation(float tx, float ty, float tz, float* m)
 {
     memset(m, 0, 64); m[0] = m[5] = m[10] = m[15] = 1.0f;
@@ -585,17 +626,16 @@ static unsigned int compileShader(GLenum type, const char* src)
     glShaderSource(s, 1, &src, nullptr);
     glCompileShader(s);
     int ok; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
-    if (!ok) { char log[1024]; glGetShaderInfoLog(s, 1024, nullptr, log); std::cerr << log << "\n"; }
+    if (!ok) { char log[2048]; glGetShaderInfoLog(s, 2048, nullptr, log); std::cerr << log << "\n"; }
     return s;
 }
-
 static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 {
     unsigned int p = glCreateProgram();
     for (auto s : shaders) glAttachShader(p, s);
     glLinkProgram(p);
     int ok; glGetProgramiv(p, GL_LINK_STATUS, &ok);
-    if (!ok) { char log[1024]; glGetProgramInfoLog(p, 1024, nullptr, log); std::cerr << log << "\n"; }
+    if (!ok) { char log[2048]; glGetProgramInfoLog(p, 2048, nullptr, log); std::cerr << log << "\n"; }
     for (auto s : shaders) glDeleteShader(s);
     return p;
 }
@@ -611,7 +651,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(800, 800,
-        "Field Simulation (GPU) — 1:Diffusion  2:Wave  3:Fluid  4:Schrodinger",
+        "Field Simulation — 1:Diffusion  2:Wave  3:Full NS Fluid  4:Schrodinger",
         nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
 
@@ -658,10 +698,11 @@ int main()
     int uRectSize = glGetUniformLocation(rectProg, "uRectSize");
     int uRectColor = glGetUniformLocation(rectProg, "uRectColor");
 
-    // ── Grid geometry ─────────────────────────────────────────────────────────
+    // ── Grid constants ────────────────────────────────────────────────────────
     const int   N = RES;
     const float h = (N > 1) ? (2.0f / (N - 1)) : 1.0f;
     const float invH2 = 1.0f / (h * h);
+    const int   STRIDE = 10;
 
     const float SIM_SPEED = 1.0f;
     const float TARGET_STEP_DT = 1.0f / 120.0f;
@@ -671,27 +712,20 @@ int main()
     const float subDtSchrod = 0.45f * h * h;
     const float subDtFluid = TARGET_STEP_DT;
 
-    // FLUID_VEL_SCALE converts screen-pixel-delta to world velocity.
-    // With heatValue=100 and a 10 px/frame drag → 100 * 10 * 0.0005 = 0.5 world/s.
-    // The drag speed is naturally proportional because heatDX/heatDY encode
-    // pixels moved since the last frame — faster drag = bigger delta = more push.
-    const float FLUID_VEL_SCALE = 0.0005f;
-
     std::cout << "Resolution: " << N << "x" << N
-        << "  dt(schrod)=" << subDtSchrod
+        << "  JACOBI_ITERS=" << JACOBI_ITERS
         << "\nControls:\n"
-        << "  1/2/3/4           — Diffusion / Wave / Fluid / Schrodinger\n"
-        << "  Left-click+drag   — paint / push fluid (speed ∝ drag speed)\n"
+        << "  1/2/3/4           — Diffusion / Wave / Full NS Fluid / Schrodinger\n"
+        << "  Left-click+drag   — paint / push fluid\n"
         << "  Scroll            — zoom\n"
         << "  Shift+Scroll      — camera Y\n"
         << "  Alt+Scroll        — brush radius (" << heatRadius << ")\n"
-        << "  Ctrl+Scroll       — paint / push strength (" << heatValue << ")\n"
+        << "  Ctrl+Scroll       — paint strength (" << heatValue << ")\n"
         << "  Right-click+drag  — rotate view\n"
         << "  Space             — pause / resume\n"
         << "  R                 — reset\n";
 
-    // ── Field SSBOs ───────────────────────────────────────────────────────────
-    const int STRIDE = 10;
+    // ── Velocity field SSBOs (ping-pong, STRIDE=10 per cell) ──────────────────
     std::vector<float> zeroBuf(N * N * STRIDE, 0.0f);
     unsigned int ssbo[2];
     glGenBuffers(2, ssbo);
@@ -703,7 +737,31 @@ int main()
             GL_DYNAMIC_COPY);
     }
 
-    // ── Field mesh ────────────────────────────────────────────────────────────
+    // ── Pressure SSBOs (ping-pong, flat N*N floats) ────────────────────────
+    // Warm-started between sub-steps and between frames for fast convergence.
+    std::vector<float> zeroFlat(N * N, 0.0f);
+    unsigned int ssboPres[2];
+    glGenBuffers(2, ssboPres);
+    for (int b = 0; b < 2; ++b) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboPres[b]);
+        glBufferData(GL_SHADER_STORAGE_BUFFER,
+            zeroFlat.size() * sizeof(float),
+            zeroFlat.data(),
+            GL_DYNAMIC_COPY);
+    }
+
+    // ── Divergence SSBO (flat N*N floats) ─────────────────────────────────────
+    unsigned int ssboDiv;
+    glGenBuffers(1, &ssboDiv);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDiv);
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        zeroFlat.size() * sizeof(float),
+        zeroFlat.data(),
+        GL_DYNAMIC_COPY);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // ── Field mesh (triangulated grid) ────────────────────────────────────────
     struct Vert { float x, y; uint32_t idx; };
     std::vector<Vert> mesh;
     mesh.reserve((N - 1) * (N - 1) * 6);
@@ -753,20 +811,17 @@ int main()
 
     const int groups = (N + 15) / 16;
     int   current = 0;
+    int   pressCur = 0;   // which ssboPres[] holds the current pressure
     float simTime = 0.0f;
     double lastTime = glfwGetTime();
-    float accumDiff = 0.0f;
-    float accumWave = 0.0f;
-    float accumSchrod = 0.0f;
-    float accumFluid = 0.0f;
+    float accumDiff = 0.0f, accumWave = 0.0f;
+    float accumSchrod = 0.0f, accumFluid = 0.0f;
 
     // ── Main loop ─────────────────────────────────────────────────────────────
     while (!glfwWindowShouldClose(window))
     {
-        // ── Poll events FIRST so heatDX/heatDY are fresh before painting ──────
         glfwPollEvents();
 
-        // ── Wall-clock delta time ─────────────────────────────────────────────
         double nowTime = glfwGetTime();
         float  realDt = (float)(nowTime - lastTime);
         lastTime = nowTime;
@@ -775,12 +830,21 @@ int main()
         // ── Reset ─────────────────────────────────────────────────────────────
         if (resetRequested) {
             resetRequested = false;
-            simTime = 0.0f; current = 0;
+            simTime = 0.0f; current = 0; pressCur = 0;
             accumDiff = accumWave = accumSchrod = accumFluid = 0.0f;
+            // Clear velocity field
             for (int b = 0; b < 2; ++b) {
                 glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[b]);
                 glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
             }
+            // Clear pressure
+            for (int b = 0; b < 2; ++b) {
+                glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboPres[b]);
+                glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
+            }
+            // Clear divergence
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDiv);
+            glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
 
@@ -800,13 +864,10 @@ int main()
                 cx = (int)((worldX + 1.0f) * 0.5f * N);
                 cy = (int)((worldY + 1.0f) * 0.5f * N);
             }
-
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
 
             if (simulationMode == 2) {
                 if (fabsf(heatDX) > 0.1f || fabsf(heatDY) > 0.1f) {
-                    // Unproject current and previous screen positions → world-space drag vector.
-                    // This naturally accounts for camera spin and pitch.
                     float wx0, wy0, wx1, wy1;
                     bool ok0 = unprojectToField(heatCurX, heatCurY, MVP, wx0, wy0);
                     bool ok1 = unprojectToField(heatCurX - heatDX, heatCurY - heatDY, MVP, wx1, wy1);
@@ -825,9 +886,7 @@ int main()
                     }
                 }
             }
-            else 
-            {
-                // Scalar modes: paint heatValue into FX.
+            else {
                 for (int dy = -heatRadius; dy <= heatRadius; ++dy)
                     for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
                         if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
@@ -839,18 +898,20 @@ int main()
             }
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
+        heatDX = 0.0f; heatDY = 0.0f;
 
-        // Delta consumed — clear for next frame.
-        heatDX = 0.0f;
-        heatDY = 0.0f;
-
-        // ── Compute pass ──────────────────────────────────────────────────────
+        // ── Compute passes ────────────────────────────────────────────────────
         if (!paused) {
             glUseProgram(computeProg);
             glUniform1i(uResU, N);
             glUniform1f(uInvH2U, invH2);
 
+            // Always bind ssboDiv to slot 2 so no binding point is ever null.
+            // Modes that don't use it (0,1,3,4) will simply ignore auxData[].
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssboDiv);
+
             if (simulationMode == 0) {
+                // ── Diffusion ─────────────────────────────────────────────────
                 accumDiff += simBudget;
                 glUniform1f(uDiffusionU, DIFFUSION);
                 glUniform1i(uComputeModeU, 0);
@@ -864,6 +925,7 @@ int main()
                 }
             }
             else if (simulationMode == 1) {
+                // ── Wave ──────────────────────────────────────────────────────
                 accumWave += simBudget;
                 glUniform1f(uDiffusionU, DIFFUSION);
                 glUniform1i(uComputeModeU, 1);
@@ -877,19 +939,70 @@ int main()
                 }
             }
             else if (simulationMode == 2) {
+                // ── Full incompressible Navier-Stokes ─────────────────────────
+                // Per sub-step:
+                //   (a) Advect + viscous diffusion  (mode 2)  ssbo[cur] → ssbo[1-cur]
+                //   (b) Divergence                  (mode 7)  ssbo[cur] → ssboDiv
+                //   (c) Jacobi iterations           (mode 5)  ssboPres[p] → ssboPres[1-p]
+                //   (d) Pressure projection         (mode 6)  ssbo[cur] → ssbo[1-cur]
+                //
+                // Pressure is warm-started from the previous sub-step (not cleared)
+                // to speed up Jacobi convergence.
+
                 accumFluid += simBudget;
-                glUniform1f(uDiffusionU, 0.001f);   // kinematic viscosity
-                glUniform1i(uComputeModeU, 2);
                 glUniform1f(uDtU, subDtFluid);
+
                 while (accumFluid >= subDtFluid) {
+
+                    // ── (a) Advect + viscous diffusion ────────────────────────
+                    glUniform1i(uComputeModeU, 2);
+                    glUniform1f(uDiffusionU, 0.001f);   // kinematic viscosity ν
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
                     glDispatchCompute(groups, groups, 1);
                     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-                    current = 1 - current; accumFluid -= subDtFluid; simTime += subDtFluid;
+                    current = 1 - current;   // ssbo[current] now holds u*
+
+                    // ── (b) Divergence  ∇·u*  ────────────────────────────────
+                    glUniform1i(uComputeModeU, 7);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssboDiv);
+                    glDispatchCompute(groups, groups, 1);
+                    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                    // Restore binding 2 to ssboDiv (it hasn't changed, just for clarity)
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssboDiv);
+
+                    // ── (c) Jacobi pressure solve  ∇²p = ∇·u*/dt  ────────────
+                    // Warm-started: pressCur already holds last step's solution.
+                    glUniform1i(uComputeModeU, 5);
+                    for (int j = 0; j < JACOBI_ITERS; ++j) {
+                        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboPres[pressCur]);
+                        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssboPres[1 - pressCur]);
+                        // binding 2 = ssboDiv (divergence RHS) — set above, still valid
+                        glDispatchCompute(groups, groups, 1);
+                        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                        pressCur = 1 - pressCur;
+                    }
+                    // ssboPres[pressCur] now holds the converged pressure p.
+
+                    // ── (d) Pressure projection  u = u* – dt ∇p  ─────────────
+                    glUniform1i(uComputeModeU, 6);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssboPres[pressCur]);
+                    glDispatchCompute(groups, groups, 1);
+                    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                    current = 1 - current;   // ssbo[current] holds the div-free velocity u
+
+                    // Restore ssboDiv to binding 2 for safety (next iteration or next mode)
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssboDiv);
+
+                    accumFluid -= subDtFluid;
+                    simTime += subDtFluid;
                 }
             }
             else {
+                // ── Schrödinger (Strang split: Re then Im) ────────────────────
                 accumSchrod += simBudget;
                 glUniform1f(uDiffusionU, DIFFUSION);
                 glUniform1f(uDtU, subDtSchrod);
@@ -914,10 +1027,8 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
-
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        //glDepthMask(simulationMode == 2 ? GL_FALSE : GL_TRUE); for transparency stuff
         glDepthMask(GL_TRUE);
 
         glUseProgram(fieldProg);
@@ -927,7 +1038,6 @@ int main()
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
         glBindVertexArray(fieldVAO);
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
-
         glDepthMask(GL_TRUE);
 
         // ── 2-D overlay ───────────────────────────────────────────────────────
@@ -944,8 +1054,7 @@ int main()
         glUniform2f(uRectOrigin, TEXT_X - PAD, TEXT_Y + PAD);
         glUniform2f(uRectSize, textW + 2 * PAD, CHAR_H + 2 * PAD);
         glUniform4f(uRectColor, 0, 0, 0, 0.65f);
-        glBindVertexArray(quadVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glUseProgram(textProg);
         glUniform2f(uTxtOrigin, TEXT_X, TEXT_Y);
@@ -954,8 +1063,7 @@ int main()
         glUniform1uiv(uTxtFont, FONT_COUNT, FONT);
         glUniform1uiv(uTxtChars, numChars, charBuf);
         glUniform4f(uTxtColor, 1, 1, 1, 1);
-        glBindVertexArray(quadVAO);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numChars);
+        glBindVertexArray(quadVAO); glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numChars);
 
         // — Mode label —
         uint32_t modeBuf[3];
@@ -967,8 +1075,7 @@ int main()
         glUniform2f(uRectOrigin, TEXT_X - PAD, modeY + PAD);
         glUniform2f(uRectSize, modeW + 2 * PAD, CHAR_H + 2 * PAD);
         glUniform4f(uRectColor, 0, 0, 0, 0.65f);
-        glBindVertexArray(quadVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(quadVAO); glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glUseProgram(textProg);
         glUniform2f(uTxtOrigin, TEXT_X, modeY);
@@ -979,21 +1086,21 @@ int main()
         if (simulationMode == 0) glUniform4f(uTxtColor, 1.0f, 0.65f, 0.0f, 1.0f);
         else if (simulationMode == 1) glUniform4f(uTxtColor, 0.0f, 1.0f, 1.0f, 1.0f);
         else if (simulationMode == 2) glUniform4f(uTxtColor, 0.2f, 1.0f, 0.4f, 1.0f);
-        else                        glUniform4f(uTxtColor, 1.0f, 0.3f, 1.0f, 1.0f);
-        glBindVertexArray(quadVAO);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numMode);
+        else                          glUniform4f(uTxtColor, 1.0f, 0.3f, 1.0f, 1.0f);
+        glBindVertexArray(quadVAO); glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numMode);
 
         glDisable(GL_BLEND);
         glfwSwapBuffers(window);
-        // NOTE: glfwPollEvents() is at the TOP of the loop so heatDX/heatDY
-        // are always fresh (non-zero) by the time painting runs.
     }
 
+    // ── Cleanup ───────────────────────────────────────────────────────────────
     glDeleteBuffers(2, ssbo);
-    glDeleteBuffers(1, &fieldVBO);  glDeleteVertexArrays(1, &fieldVAO);
-    glDeleteBuffers(1, &quadVBO);   glDeleteVertexArrays(1, &quadVAO);
-    glDeleteProgram(computeProg);  glDeleteProgram(fieldProg);
-    glDeleteProgram(textProg);     glDeleteProgram(rectProg);
+    glDeleteBuffers(2, ssboPres);
+    glDeleteBuffers(1, &ssboDiv);
+    glDeleteBuffers(1, &fieldVBO);    glDeleteVertexArrays(1, &fieldVAO);
+    glDeleteBuffers(1, &quadVBO);     glDeleteVertexArrays(1, &quadVAO);
+    glDeleteProgram(computeProg);     glDeleteProgram(fieldProg);
+    glDeleteProgram(textProg);        glDeleteProgram(rectProg);
     glfwTerminate();
     return 0;
 }
