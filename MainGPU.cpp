@@ -230,8 +230,8 @@ void main()
         float newVx = bilinear(px, py, FX);
         float newVy = bilinear(px, py, FY);
         // Explicit viscous diffusion applied to the old field
-        newVx += uDiffusion * laplacian(r,l,u,d,c,FX) * uDt;
-        newVy += uDiffusion * laplacian(r,l,u,d,c,FY) * uDt;
+        newVx += 0 * laplacian(r,l,u,d,c,FX) * uDt;
+        newVy += 0 * laplacian(r,l,u,d,c,FY) * uDt;
         newVx *= 0.9998;   // mild global damping for stability
         newVy *= 0.9998;
         outData[base+FX] = newVx;
@@ -242,7 +242,8 @@ void main()
         outData[base+9]  = 0.0;
     }
     // ── Schrödinger A: ∂Re/∂t = +½ ∇²Im ─────────────────────────────────────
-    else if (uMode == 3) {
+    else if (uMode == 3) 
+    {
         float lapIm = uDiffusion * laplacian(r,l,u,d,c,FY);
         outData[base+FX] = get(c,FX) - 0.5*lapIm*uDt;
         outData[base+FY] = get(c,FY);
@@ -252,7 +253,8 @@ void main()
         outData[base+9]  = 0.0;
     }
     // ── Schrödinger B: ∂Im/∂t = –½ ∇²Re ─────────────────────────────────────
-    else if (uMode == 4) {
+    else if (uMode == 4) 
+    {
         float lapRe = uDiffusion * laplacian(r,l,u,d,c,FX);
         outData[base+FX] = get(c,FX);
         outData[base+FY] = get(c,FY) + 0.5*lapRe*uDt;
@@ -261,43 +263,27 @@ void main()
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
-    // ── Jacobi: one step of  ∇²p = div/dt  ───────────────────────────────────
-    // binding 0: p_in  (flat N*N floats)
-    // binding 1: p_out (flat N*N floats)
-    // binding 2: div   (flat N*N floats)
-    //
-    // Jacobi iteration for the 5-point stencil:
-    //   p_new = (p[r]+p[l]+p[u]+p[d] – h²·div/dt) / 4
-    else if (uMode == 5) {
+    else if (uMode == 5) 
+    {
         float h   = 2.0 / float(uRes-1);
         float pR  = inData[r];
         float pL  = inData[l];
         float pU  = inData[u];
         float pD  = inData[d];
         float div = auxData[c];
-        outData[c] = (pR + pL + pU + pD - h*h * div / uDt) * 0.25;
+        outData[c] = (pR + pL + pU + pD - h*h * uDiffusion * div / uDt) * 0.25;
     }
-    // ── Pressure projection: u = u* – dt ∇p ─────────────────────────────────
-    // binding 0: u* velocity (STRIDE layout)
-    // binding 1: u  velocity (STRIDE layout)
-    // binding 2: p  pressure (flat N*N floats)
-    //
-    // Central-difference gradient:  ∂p/∂x ≈ (p[r]–p[l]) / (2h)
-    else if (uMode == 6) {
-        float invTwoH = float(uRes-1) * 0.25;   // 1/(2h),  h=2/(N-1)
+    else if (uMode == 6) 
+    {
+        float invTwoH = float(uRes-1) * 0.25;
         float dpx = (auxData[r] - auxData[l]) * invTwoH;
         float dpy = (auxData[u] - auxData[d]) * invTwoH;
-        // Copy all STRIDE components, then overwrite the velocity components.
         for (int i = 0; i < STRIDE; i++) outData[base+i] = inData[base+i];
-        outData[base+FX] = get(c,FX) - uDt * dpx;
-        outData[base+FY] = get(c,FY) - uDt * dpy;
+        outData[base+FX] = get(c,FX) - (uDt / uDiffusion) * dpx;
+        outData[base+FY] = get(c,FY) - (uDt / uDiffusion) * dpy;
     }
-    // ── Divergence: div = ∂vx/∂x + ∂vy/∂y  ──────────────────────────────────
-    // binding 0: velocity (STRIDE layout)
-    // binding 1: div      (flat N*N floats)
-    //
-    // Central-difference:  ∂vx/∂x ≈ (vx[r]–vx[l]) / (2h)
-    else if (uMode == 7) {
+    else if (uMode == 7) 
+    {
         float invTwoH = float(uRes-1) * 0.25;
         float dvx = (get(r,FX) - get(l,FX)) * invTwoH;
         float dvy = (get(u,FY) - get(d,FY)) * invTwoH;
