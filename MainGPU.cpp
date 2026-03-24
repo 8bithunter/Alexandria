@@ -1,22 +1,4 @@
-// =============================================================================
-// Field Simulation — GPU Compute Edition
-// Requires OpenGL 4.3 (compute shaders + SSBOs)
-//
-// Simulation modes (keys 1 / 2 / 3 / 4):
-//   1 – Diffusion      : ∂u/∂t = D ∇²u
-//   2 – Wave           : ∂²u/∂t² = c² ∇²u
-//   3 – Fluid Flow     : full incompressible Navier-Stokes
-//         ∂u/∂t + (u·∇)u = –∇p + ν∇²u,   ∇·u = 0
-//         Steps per sub-tick:
-//           (a) Semi-Lagrangian advection + viscous diffusion  → u*
-//           (b) Divergence     : compute ∇·u* → ssboDiv
-//           (c) Jacobi solve   : ∇²p = ∇·u*/dt  (JACOBI_ITERS iterations)
-//           (d) Project        : u = u* − dt ∇p
-//         Drag cursor to push fluid; hue = direction, height = speed.
-//   4 – Schrödinger    : i ∂ψ/∂t = –½ ∇²ψ   (ħ = m = 1)
-//         FX = Re(ψ),  FY = Im(ψ),  height = |ψ|,  hue = arg(ψ)
-//
-// Other controls:
+// Controls:
 //   Left-click+drag  – paint excitation (fluid: pushes in drag direction)
 //   Ctrl+Scroll      – change paint value / fluid push strength
 //   Alt+Scroll       – change brush radius
@@ -191,8 +173,8 @@ void main()
     int d    = ((id.y-1+uRes) % uRes)*uRes + id.x;
     int base = c * STRIDE;
 
-    // ── Diffusion ─────────────────────────────────────────────────────────────
-    if (uMode == 0) {
+    if (uMode == 0) 
+    {
         float vx = uDiffusion * laplacian(r,l,u,d,c,FX);
         float vy = uDiffusion * laplacian(r,l,u,d,c,FY);
         float vz = uDiffusion * laplacian(r,l,u,d,c,FZ);
@@ -203,8 +185,8 @@ void main()
         outData[base+AX] = 0;  outData[base+AY] = 0;  outData[base+AZ] = 0;
         outData[base+9]  = 0.0;
     }
-    // ── Wave ──────────────────────────────────────────────────────────────────
-    else if (uMode == 1) {
+    else if (uMode == 1) 
+    {
         float ax = uDiffusion * laplacian(r,l,u,d,c,FX);
         float ay = uDiffusion * laplacian(r,l,u,d,c,FY);
         float az = uDiffusion * laplacian(r,l,u,d,c,FZ);
@@ -218,9 +200,6 @@ void main()
         outData[base+AX] = ax; outData[base+AY] = ay; outData[base+AZ] = az;
         outData[base+9]  = 0.0;
     }
-    // ── NS: Advect + viscous diffusion  →  u*  ────────────────────────────────
-    // FX = velocity x,  FY = velocity y  (world units per second).
-    // Semi-Lagrangian back-trace + explicit viscosity diffusion.
     else if (uMode == 2) {
         float h    = 2.0 / float(uRes-1);
         float vx   = get(c, FX);
@@ -232,8 +211,8 @@ void main()
         // Explicit viscous diffusion applied to the old field
         newVx += 0 * laplacian(r,l,u,d,c,FX) * uDt;
         newVy += 0 * laplacian(r,l,u,d,c,FY) * uDt;
-        newVx *= 0.9998;   // mild global damping for stability
-        newVy *= 0.9998;
+        newVx *= 0.999;   // mild global damping for stability
+        newVy *= 0.999;
         outData[base+FX] = newVx;
         outData[base+FY] = newVy;
         outData[base+FZ] = 0.0;
@@ -292,9 +271,6 @@ void main()
 }
 )GLSL";
 
-// =============================================================================
-// Field render shaders
-// =============================================================================
 static const char* fieldVertSrc = R"GLSL(
 #version 430 core
 layout(location = 0) in vec2 aPos;
@@ -389,9 +365,6 @@ out vec4 FragColor;
 void main() { FragColor = vColor; }
 )GLSL";
 
-// =============================================================================
-// Text overlay shaders
-// =============================================================================
 static const char* textVertSrc = R"GLSL(
 #version 430 core
 layout(location = 0) in vec2 aPos;
@@ -426,9 +399,6 @@ void main()
 }
 )GLSL";
 
-// =============================================================================
-// Solid rect shader
-// =============================================================================
 static const char* rectVertSrc = R"GLSL(
 #version 430 core
 layout(location = 0) in vec2 aPos;
@@ -448,9 +418,6 @@ out vec4 FragColor;
 void main() { FragColor = uRectColor; }
 )GLSL";
 
-// =============================================================================
-// Global input state
-// =============================================================================
 struct GlobeState {
     bool dragging = false;
     double lastX = 0, lastY = 0;
@@ -469,9 +436,6 @@ static float cameraY = 0.0f;
 static bool  paused = false;
 static bool  resetRequested = false;
 
-// =============================================================================
-// Callbacks
-// =============================================================================
 static void keyCallback(GLFWwindow*, int key, int, int action, int)
 {
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) paused = !paused;
@@ -525,9 +489,6 @@ static void cursorPosCallback(GLFWwindow*, double x, double y)
     heatCurY = newY;
 }
 
-// =============================================================================
-// Math helpers
-// =============================================================================
 static void mat4Inverse(const float* m, float* out)
 {
     float inv[16];
@@ -603,9 +564,6 @@ static void buildTranslation(float tx, float ty, float tz, float* m)
     m[12] = tx; m[13] = ty; m[14] = tz;
 }
 
-// =============================================================================
-// Shader helpers
-// =============================================================================
 static unsigned int compileShader(GLenum type, const char* src)
 {
     unsigned int s = glCreateShader(type);
@@ -626,9 +584,6 @@ static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
     return p;
 }
 
-// =============================================================================
-// main
-// =============================================================================
 int main()
 {
     if (!glfwInit()) return -1;
