@@ -828,13 +828,26 @@ int main()
                 }
             }
             else {
+                bool shiftHeld = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+                    || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+                float addRate = heatValue / 10.0f;
+
                 for (int dy = -heatRadius; dy <= heatRadius; ++dy)
                     for (int dx = -heatRadius; dx <= heatRadius; ++dx) {
                         if (dx * dx + dy * dy > heatRadius * heatRadius) continue;
                         int gi = cy + dy, gj = cx + dx;
                         if (gi < 0 || gi >= N || gj < 0 || gj >= N) continue;
                         GLintptr off = (GLintptr)((gi * N + gj) * STRIDE) * sizeof(float);
-                        glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &heatValue);
+                        if (shiftHeld) {
+                            // Additive mode: read current value, increment by heatValue/10
+                            float cur = 0.0f;
+                            glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &cur);
+                            cur += addRate;
+                            glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &cur);
+                        }
+                        else {
+                            glBufferSubData(GL_SHADER_STORAGE_BUFFER, off, sizeof(float), &heatValue);
+                        }
                     }
             }
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
