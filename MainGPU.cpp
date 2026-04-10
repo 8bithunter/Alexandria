@@ -37,6 +37,7 @@ static constexpr float DIFFUSION = 0.01f;
 
 // simulationMode:  0=diffusion  1=wave  2=fluid  3=schrödinger
 static int simulationMode = 0;
+static bool g_returnToConsole = false;
 
 // =============================================================================
 // Bitmap font  (4 wide × 6 tall, packed as 6 nibbles into uint32_t)
@@ -431,7 +432,7 @@ static bool  resetRequested = false;
 // =============================================================================
 // Callbacks
 // =============================================================================
-static void keyCallback(GLFWwindow*, int key, int, int action, int)
+static void keyCallback(GLFWwindow* window, int key, int, int action, int)
 {
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) paused = !paused;
     if (key == GLFW_KEY_R && action == GLFW_PRESS) resetRequested = true;
@@ -603,7 +604,7 @@ static unsigned int makeProgram(std::initializer_list<unsigned int> shaders)
 // =============================================================================
 // main
 // =============================================================================
-int main()
+int runSimulation(int simulationMode)
 {
     if (!glfwInit()) return -1;
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -761,9 +762,14 @@ int main()
     float accumFluid = 0.0f;
 
     // ── Main loop ─────────────────────────────────────────────────────────────
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window) && !g_returnToConsole)
     {
         // ── Poll events FIRST so heatDX/heatDY are fresh before painting ──────
+     // Optional: Check for ESC key directly (in case callback missed it)
+     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+       glfwSetWindowShouldClose(window, GLFW_TRUE);
+       g_returnToConsole = true;
+     }
         glfwPollEvents();
 
         // ── Wall-clock delta time ─────────────────────────────────────────────

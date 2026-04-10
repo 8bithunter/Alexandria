@@ -150,6 +150,7 @@
     <ClCompile Include="FieldVertex.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="MainGPU.cpp" />
+    <ClCompile Include="ConsoleLauncher.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
