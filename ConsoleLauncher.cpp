@@ -6,8 +6,10 @@
 #include <string>
 #include <cstring>
 
-// Forward declaration
+// Forward declarations
 int runSimulation(int mode);
+void setResolution(int resolution);
+void setCoefficient(float coefficient);
 
 static void printBanner() {
     std::cout << "\n";
@@ -33,6 +35,8 @@ static void printHelp() {
     std::cout << "Available commands:\n";
     std::cout << "  run <sim>   Launch a simulation by name\n";
     std::cout << "              Names: diffusion, wave, fluid, schrodinger\n";
+    std::cout << "  setresolution <number> Set simulation resolution\n";
+    std::cout << "  setcoefficient <number> Set diffusion coefficient\n";
     std::cout << "  help        Show this help message\n";
     std::cout << "  exit        Exit the launcher\n";
     std::cout << "  cls         Clear the screen\n";
@@ -126,6 +130,36 @@ int main(int argc, char* argv[]) {
             printBanner();
             std::cout << "Console cleared. Type 'help' for commands.\n";
         }
+    else if (command.find("setresolution ") == 0) {
+        std::string valueStr = command.substr(14);
+        if (!valueStr.empty()) {
+            try {
+                int value = std::stoi(valueStr);
+                setResolution(value);
+            }
+            catch (...) {
+                std::cout << "Invalid resolution value. Please provide a number.";
+            }
+        }
+        else {
+            std::cout << "Usage: setresolution <number>";
+        }
+    }
+    else if (command.find("setcoefficient ") == 0) {
+        std::string valueStr = command.substr(15);
+        if (!valueStr.empty()) {
+            try {
+                float value = std::stof(valueStr);
+                setCoefficient(value);
+            }
+            catch (...) {
+                std::cout << "Invalid coefficient value. Please provide a number.";
+            }
+        }
+        else {
+            std::cout << "Usage: setcoefficient <number>";
+        }
+    }
         else if (command.find("run ") == 0) {
             std::string sim = command.substr(4);
 

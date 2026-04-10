@@ -142,15 +142,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="SimulationRegistry.cpp" />
-    <ClCompile Include="DiffusionSimulation.cpp" />
-    <ClCompile Include="WaveSimulation.cpp" />
-    <ClCompile Include="FluidSimulation.cpp" />
-    <ClCompile Include="SchrodingerSimulation.cpp" />
-    <ClCompile Include="FieldVertex.cpp" />
+    <ClCompile Include="ShaderLoader.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="MainGPU.cpp" />
     <ClCompile Include="ConsoleLauncher.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ShaderLoader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

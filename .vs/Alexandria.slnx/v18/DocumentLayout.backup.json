@@ -11,41 +11,17 @@
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:FieldVertex.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\WaveSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:WaveSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\DiffusionSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:DiffusionSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\SchrodingerSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:SchrodingerSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\FluidSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:FluidSimulation.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\SimulationRegistry.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:SimulationRegistry.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\include\\memory||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt\\stddef.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -63,40 +39,16 @@
               "Title": "ConsoleLauncher.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
               "RelativeDocumentMoniker": "ConsoleLauncher.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp*",
-              "RelativeToolTip": "ConsoleLauncher.cpp*",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABgAAACmAAAAAAAAAA==",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
+              "RelativeToolTip": "ConsoleLauncher.cpp",
+              "ViewState": "AgIAABIAAAAAAAAAAAAAACcAAAA6AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-04-10T17:31:46.096Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "Microsoft.CppBuild.targets",
-              "DocumentMoniker": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "ToolTip": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "RelativeToolTip": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "ViewState": "AgIAALQBAAAAAAAAAAASwCYCAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
-              "WhenOpened": "2026-04-09T23:21:51.99Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "FluidSimulation.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\FluidSimulation.cpp",
-              "RelativeDocumentMoniker": "FluidSimulation.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\FluidSimulation.cpp",
-              "RelativeToolTip": "FluidSimulation.cpp",
-              "ViewState": "AgIAABsAAAAAAAAAAAAAAAgAAAAfAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-09T22:51:42.363Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 4,
               "Title": "memory",
               "DocumentMoniker": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\include\\memory",
               "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\include\\memory",
@@ -108,7 +60,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 5,
               "Title": "stddef.h",
               "DocumentMoniker": "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt\\stddef.h",
               "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt\\stddef.h",
@@ -120,80 +72,32 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "DiffusionSimulation.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\DiffusionSimulation.cpp",
-              "RelativeDocumentMoniker": "DiffusionSimulation.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\DiffusionSimulation.cpp",
-              "RelativeToolTip": "DiffusionSimulation.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAAAoAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-09T22:51:42.489Z"
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 1,
               "Title": "MainGPU.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeDocumentMoniker": "MainGPU.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeToolTip": "MainGPU.cpp",
-              "ViewState": "AgIAAAIBAAAAAAAAAAAAAEMAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAADkBAAAAAAAAAAAgwEwBAAANAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-04-09T22:51:42.498Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
-              "Title": "SimulationRegistry.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\SimulationRegistry.cpp",
-              "RelativeDocumentMoniker": "SimulationRegistry.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\SimulationRegistry.cpp",
-              "RelativeToolTip": "SimulationRegistry.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAbAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-09T23:03:08.173Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "SchrodingerSimulation.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\SchrodingerSimulation.cpp",
-              "RelativeDocumentMoniker": "SchrodingerSimulation.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\SchrodingerSimulation.cpp",
-              "RelativeToolTip": "SchrodingerSimulation.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-09T23:04:55.445Z"
+              "DocumentIndex": 3,
+              "Title": "Microsoft.CppBuild.targets",
+              "DocumentMoniker": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "ToolTip": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "RelativeToolTip": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "ViewState": "AgIAAA4CAAAAAAAAAAASwCYCAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
+              "WhenOpened": "2026-04-09T23:21:51.99Z"
             },
             {
               "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "FieldVertex.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp",
-              "RelativeDocumentMoniker": "FieldVertex.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\FieldVertex.cpp",
-              "RelativeToolTip": "FieldVertex.cpp",
-              "ViewState": "AgIAABIAAAAAAAAAAAAAAIUAAAAtAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-09T22:51:42.576Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "WaveSimulation.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\WaveSimulation.cpp",
-              "RelativeDocumentMoniker": "WaveSimulation.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\WaveSimulation.cpp",
-              "RelativeToolTip": "WaveSimulation.cpp",
-              "ViewState": "AgIAADMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-09T23:11:49.827Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 11,
               "Title": "glad.c",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c",
               "RelativeDocumentMoniker": "glad.c",

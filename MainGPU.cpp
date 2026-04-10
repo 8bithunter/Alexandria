@@ -31,13 +31,34 @@
 #include <cstdint>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "ShaderLoader.h"
 
-static constexpr int   RES = 200;
-static constexpr float DIFFUSION = 0.01f;
+static int   RES = 200;
+static float DIFFUSION = 0.01f;
 
 // simulationMode:  0=diffusion  1=wave  2=fluid  3=schrödinger
 static int simulationMode = 0;
 static bool g_returnToConsole = false;
+
+
+// Setter functions for runtime parameter modification
+void setResolution(int resolution) {
+    if (resolution > 0 && resolution <= 1000) {
+        RES = resolution;
+        std::cout << "Resolution set to: " << RES << "\n";
+    } else {
+        std::cout << "Invalid resolution. Must be between 1 and 1000.\n";
+    }
+}
+
+void setCoefficient(float coefficient) {
+    if (coefficient > 0.0f && coefficient <= 10.0f) {
+        DIFFUSION = coefficient;
+        std::cout << "Coefficient set to: " << DIFFUSION << "\n";
+    } else {
+        std::cout << "Invalid coefficient. Must be positive and <= 10.0.\n";
+    }
+}
 
 // =============================================================================
 // Bitmap font  (4 wide × 6 tall, packed as 6 nibbles into uint32_t)
@@ -117,289 +138,17 @@ static int formatModeLabel(int mode, uint32_t* out)
 // Compute shader
 // uMode: 0=diffusion  1=wave  2=fluid  3=schrod_re  4=schrod_im
 // =============================================================================
-static const char* computeSrc = R"GLSL(
-#version 430 core
-layout(local_size_x = 16, local_size_y = 16) in;
-
-#define STRIDE 10
-#define FX 0
-#define FY 1
-#define FZ 2
-#define VX 3
-#define VY 4
-#define VZ 5
-#define AX 6
-#define AY 7
-#define AZ 8
-
-layout(std430, binding = 0) readonly  buffer BufIn  { float inData[];  };
-layout(std430, binding = 1) writeonly buffer BufOut { float outData[]; };
-
-uniform int   uRes;
-uniform float uInvH2;
-uniform float uDiffusion;
-uniform float uDt;
-uniform int   uMode;
-
-float get(int cell, int comp) { return inData[cell * STRIDE + comp]; }
-
-float laplacian(int r, int l, int u, int d, int c, int comp)
-{
-    return (get(r,comp)+get(l,comp)+get(u,comp)+get(d,comp) - 4.0*get(c,comp)) * uInvH2;
-}
-
-float bilinear(float fx, float fy, int comp)
-{
-    fx = clamp(fx, 0.0, float(uRes - 1));
-    fy = clamp(fy, 0.0, float(uRes - 1));
-    int x0 = int(fx), y0 = int(fy);
-    int x1 = min(x0 + 1, uRes - 1);
-    int y1 = min(y0 + 1, uRes - 1);
-    float tx = fx - float(x0);
-    float ty = fy - float(y0);
-    float v00 = get(y0*uRes+x0, comp);
-    float v10 = get(y0*uRes+x1, comp);
-    float v01 = get(y1*uRes+x0, comp);
-    float v11 = get(y1*uRes+x1, comp);
-    return mix(mix(v00,v10,tx), mix(v01,v11,tx), ty);
-}
-
-void main()
-{
-    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
-    if (id.x >= uRes || id.y >= uRes) return;
-    int c = id.y*uRes + id.x;
-    int r = id.y*uRes + (id.x+1) % uRes;
-    int l = id.y*uRes + (id.x-1+uRes) % uRes;
-    int u = ((id.y+1) % uRes)*uRes + id.x;
-    int d = ((id.y-1+uRes) % uRes)*uRes + id.x;
-    int base = c * STRIDE;
-
-    if (uMode == 0) {
-        float vx = uDiffusion * laplacian(r,l,u,d,c,FX);
-        float vy = uDiffusion * laplacian(r,l,u,d,c,FY);
-        float vz = uDiffusion * laplacian(r,l,u,d,c,FZ);
-        outData[base+FX] = get(c,FX) + vx*uDt;
-        outData[base+FY] = get(c,FY) + vy*uDt;
-        outData[base+FZ] = get(c,FZ) + vz*uDt;
-        outData[base+VX] = vx; outData[base+VY] = vy; outData[base+VZ] = vz;
-        outData[base+AX] = 0;  outData[base+AY] = 0;  outData[base+AZ] = 0;
-        outData[base+9]  = 0.0;
-    }
-    else if (uMode == 1) {
-        float ax = uDiffusion * laplacian(r,l,u,d,c,FX);
-        float ay = uDiffusion * laplacian(r,l,u,d,c,FY);
-        float az = uDiffusion * laplacian(r,l,u,d,c,FZ);
-        float vx = get(c,VX)*0.999 + ax*uDt;
-        float vy = get(c,VY)       + ay*uDt;
-        float vz = get(c,VZ)       + az*uDt;
-        outData[base+FX] = get(c,FX) + vx*uDt;
-        outData[base+FY] = get(c,FY) + vy*uDt;
-        outData[base+FZ] = get(c,FZ) + vz*uDt;
-        outData[base+VX] = vx; outData[base+VY] = vy; outData[base+VZ] = vz;
-        outData[base+AX] = ax; outData[base+AY] = ay; outData[base+AZ] = az;
-        outData[base+9]  = 0.0;
-    }
-    else if (uMode == 2) {
-        // Semi-Lagrangian advection + viscous diffusion.
-        // FX = velocity x,  FY = velocity y  (world-space units per second)
-        float h   = 2.0 / float(uRes - 1);
-        float vx  = get(c, FX);
-        float vy  = get(c, FY);
-        float px  = float(id.x) - vx * uDt / h;
-        float py  = float(id.y) - vy * uDt / h;
-        float newVx = bilinear(px, py, FX);
-        float newVy = bilinear(px, py, FY);
-        newVx += uDiffusion * laplacian(r,l,u,d,c,FX) * uDt;
-        newVy += uDiffusion * laplacian(r,l,u,d,c,FY) * uDt;
-        // newVx *= 0.9995; viscosity
-        // newVy *= 0.9995;
-        outData[base+FX] = newVx;
-        outData[base+FY] = newVy;
-        outData[base+FZ] = 0.0;
-        outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
-        outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
-        outData[base+9]  = 0.0;
-    }
-    else if (uMode == 3) {
-        // Schrödinger pass A: ∂Re/∂t = +½ ∇²Im
-        float lapIm = laplacian(r,l,u,d,c,FY);
-        outData[base+FX] = get(c,FX) - 0.5*lapIm*uDt;
-        outData[base+FY] = get(c,FY);
-        outData[base+FZ] = get(c,FZ);
-        outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
-        outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
-        outData[base+9]  = 0.0;
-    }
-    else {
-        // Schrödinger pass B: ∂Im/∂t = –½ ∇²Re
-        float lapRe = laplacian(r,l,u,d,c,FX);
-        outData[base+FX] = get(c,FX);
-        outData[base+FY] = get(c,FY) + 0.5*lapRe*uDt;
-        outData[base+FZ] = get(c,FZ);
-        outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
-        outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
-        outData[base+9]  = 0.0;
-    }
-}
-)GLSL";
 
 // =============================================================================
-// Field render shaders
-// uMode >= 2 → complex-pair coloring (hue = atan2, height = magnitude)
+// Shaders loaded from files
 // =============================================================================
-static const char* fieldVertSrc = R"GLSL(
-#version 430 core
-layout(location = 0) in vec2 aPos;
-layout(location = 1) in uint aIdx;
-#define STRIDE 10
-layout(std430, binding = 0) readonly buffer Field { float field[]; };
-uniform mat4 uRotation;
-uniform int  uMode;
-uniform int  uRes;
-out vec4 vColor;
-
-vec3 hueToRgb(float h)
-{
-    float hp = h * 6.0;
-    float xc = 1.0 - abs(mod(hp, 2.0) - 1.0);
-    int s = int(hp) % 6; if (s < 0) s += 6;
-    if      (s==0) return vec3(1,  xc, 0 );
-    else if (s==1) return vec3(xc, 1,  0 );
-    else if (s==2) return vec3(0,  1,  xc);
-    else if (s==3) return vec3(0,  xc, 1 );
-    else if (s==4) return vec3(xc, 0,  1 );
-    else           return vec3(1,  0,  xc);
-}
-
-float cellHeight(int idx)
-{
-    idx = clamp(idx, 0, uRes*uRes - 1);
-    if (uMode >= 2) {
-        float re = field[idx*STRIDE + 0];
-        float im = field[idx*STRIDE + 1];
-        return atan(sqrt(re*re + im*im) * 0.02) / 3.14159265;
-    } else {
-        return atan(field[idx*STRIDE] * 0.02) / 3.14159265;
-    }
-}
-
-void main()
-{
-    int id = int(aIdx);
-    int ix = id % uRes;
-    int iy = id / uRes;
-
-    float hr = cellHeight(iy*uRes + min(ix+1, uRes-1));
-    float hl = cellHeight(iy*uRes + max(ix-1, 0      ));
-    float hu = cellHeight(min(iy+1, uRes-1)*uRes + ix );
-    float hd = cellHeight(max(iy-1, 0      )*uRes + ix );
-    float zScale = 3.0;
-    vec3 tx = normalize(vec3(2.0, 0.0, (hr-hl)*zScale));
-    vec3 ty = normalize(vec3(0.0, 2.0, (hu-hd)*zScale));
-    vec3 N  = normalize(cross(tx, ty));
-
-    float height, hue, value, alpha;
-    if (uMode >= 2) {
-        float re  = field[id*STRIDE + 0];
-        float im  = field[id*STRIDE + 1];
-        float mag = sqrt(re*re + im*im);
-        if (uMode == 2) 
-        {
-            height = atan(2 * mag) / 3.14159265 - 0.5;
-            value = 2 * atan(2 * mag) / 3.14159265;
-            hue = atan(-im, -re) / (2 * 3.14159265) + 0.5;
-        }
-        else 
-        {
-        height = atan(mag * 0.02) / 3.14159265 - 0.25;
-        value = 1.0;
-        hue = atan(im, re) / (2.0*3.14159265) + 0.5;
-        }
-        alpha = 1.0;
-    } 
-    else 
-    {
-        float fx = field[id*STRIDE];
-        height = atan( fx*0.02) / 3.14159265 - 0.5;
-        hue    = atan(-fx*0.02) / 3.14159265 + 0.5;
-        alpha = 1.0;
-        value = 1.0;
-    }
-
-    gl_Position = uRotation * vec4(aPos, height, 1.0);
-
-    vec3 lightDir = normalize(vec3(-0.4, 0.6, 1.0));
-    float light = 0.25 + 0.75 * abs(dot(N, lightDir));
-    vColor = vec4(hueToRgb(hue) * light * value, alpha);
-}
-)GLSL";
-
-static const char* fieldFragSrc = R"GLSL(
-#version 430 core
-in  vec4 vColor;
-out vec4 FragColor;
-void main() { FragColor = vColor; }
-)GLSL";
-
-// =============================================================================
-// Text overlay shaders
-// =============================================================================
-static const char* textVertSrc = R"GLSL(
-#version 430 core
-layout(location = 0) in vec2 aPos;
-uniform vec2  uOrigin;
-uniform vec2  uCharSize;
-uniform float uAdvance;
-uniform uint  uFont[22];
-uniform uint  uChars[16];
-out vec2 vUV;
-flat out uint vGlyph;
-void main()
-{
-    vec2 cellOrigin = uOrigin + vec2(float(gl_InstanceID) * uAdvance, 0.0);
-    gl_Position = vec4(cellOrigin + vec2(aPos.x*uCharSize.x, -aPos.y*uCharSize.y), 0.0, 1.0);
-    vUV    = aPos;
-    vGlyph = uFont[uChars[gl_InstanceID]];
-}
-)GLSL";
-
-static const char* textFragSrc = R"GLSL(
-#version 430 core
-in  vec2 vUV;
-flat in uint vGlyph;
-uniform vec4 uTextColor;
-out vec4 FragColor;
-void main()
-{
-    int col = clamp(int(vUV.x * 4.0), 0, 3);
-    int row = clamp(int(vUV.y * 6.0), 0, 5);
-    if (((vGlyph >> uint(row*4 + col)) & 1u) == 0u) discard;
-    FragColor = uTextColor;
-}
-)GLSL";
-
-// =============================================================================
-// Solid rect shader
-// =============================================================================
-static const char* rectVertSrc = R"GLSL(
-#version 430 core
-layout(location = 0) in vec2 aPos;
-uniform vec2 uRectOrigin;
-uniform vec2 uRectSize;
-void main()
-{
-    vec2 p = uRectOrigin + vec2(aPos.x*uRectSize.x, -aPos.y*uRectSize.y);
-    gl_Position = vec4(p, 0.0, 1.0);
-}
-)GLSL";
-
-static const char* rectFragSrc = R"GLSL(
-#version 430 core
-uniform vec4 uRectColor;
-out vec4 FragColor;
-void main() { FragColor = uRectColor; }
-)GLSL";
+static std::string computeSrc = loadShaderFile("shaders/compute.glsl");
+static std::string fieldVertSrc = loadShaderFile("shaders/field.vert");
+static std::string fieldFragSrc = loadShaderFile("shaders/field.frag");
+static std::string textVertSrc = loadShaderFile("shaders/text.vert");
+static std::string textFragSrc = loadShaderFile("shaders/text.frag");
+static std::string rectVertSrc = loadShaderFile("shaders/rect.vert");
+static std::string rectFragSrc = loadShaderFile("shaders/rect.frag");
 
 // =============================================================================
 // Global input state
@@ -436,12 +185,6 @@ static void keyCallback(GLFWwindow* window, int key, int, int action, int)
 {
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) paused = !paused;
     if (key == GLFW_KEY_R && action == GLFW_PRESS) resetRequested = true;
-    if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_1) { simulationMode = 0; resetRequested = true; std::cout << "Mode: Diffusion  (1)\n"; }
-        if (key == GLFW_KEY_2) { simulationMode = 1; resetRequested = true; std::cout << "Mode: Wave  (2)\n"; }
-        if (key == GLFW_KEY_3) { simulationMode = 2; resetRequested = true; std::cout << "Mode: Fluid Flow  (3)\n"; }
-        if (key == GLFW_KEY_4) { simulationMode = 3; resetRequested = true; std::cout << "Mode: Schrodinger  (4)\n"; }
-    }
 }
 
 static void scrollCallback(GLFWwindow* w, double, double yoff)
@@ -629,13 +372,16 @@ int runSimulation(int simulationMode)
     glEnable(GL_DEPTH_TEST);
 
     // ── Programs ──────────────────────────────────────────────────────────────
-    unsigned int computeProg = makeProgram({ compileShader(GL_COMPUTE_SHADER,  computeSrc) });
-    unsigned int fieldProg = makeProgram({ compileShader(GL_VERTEX_SHADER,   fieldVertSrc),
-                                             compileShader(GL_FRAGMENT_SHADER, fieldFragSrc) });
-    unsigned int textProg = makeProgram({ compileShader(GL_VERTEX_SHADER,   textVertSrc),
-                                             compileShader(GL_FRAGMENT_SHADER, textFragSrc) });
-    unsigned int rectProg = makeProgram({ compileShader(GL_VERTEX_SHADER,   rectVertSrc),
-                                             compileShader(GL_FRAGMENT_SHADER, rectFragSrc) });
+
+  // ── Programs ──────────────────────────────────────────────────────────────
+  unsigned int computeProg = makeProgram({ compileShader(GL_COMPUTE_SHADER, computeSrc.c_str()) });
+  unsigned int fieldProg = makeProgram({ compileShader(GL_VERTEX_SHADER, fieldVertSrc.c_str()),
+                                         compileShader(GL_FRAGMENT_SHADER, fieldFragSrc.c_str()) });
+  unsigned int textProg = makeProgram({ compileShader(GL_VERTEX_SHADER, textVertSrc.c_str()),
+                                        compileShader(GL_FRAGMENT_SHADER, textFragSrc.c_str()) });
+  unsigned int rectProg = makeProgram({ compileShader(GL_VERTEX_SHADER, rectVertSrc.c_str()),
+                                        compileShader(GL_FRAGMENT_SHADER, rectFragSrc.c_str()) });
+
 
     // ── Uniform locations ─────────────────────────────────────────────────────
     int uResU = glGetUniformLocation(computeProg, "uRes");

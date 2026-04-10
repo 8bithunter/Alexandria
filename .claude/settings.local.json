@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la *.cpp *.h)",
+      "Bash(mkdir -p .claude/backup/alexandria_cleanup)",
+      "Bash(cp *.h *.cpp .claude/backup/alexandria_cleanup/)"
+    ]
+  }
+}
