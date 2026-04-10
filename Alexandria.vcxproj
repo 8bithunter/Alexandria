@@ -142,10 +142,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SimulationRegistry.cpp" />
+    <ClCompile Include="DiffusionSimulation.cpp" />
+    <ClCompile Include="WaveSimulation.cpp" />
+    <ClCompile Include="FluidSimulation.cpp" />
+    <ClCompile Include="SchrodingerSimulation.cpp" />
     <ClCompile Include="FieldVertex.cpp" />
     <ClCompile Include="glad.c" />
-    <ClCompile Include="Main3D.cpp" />
-    <ClCompile Include="MainCPU.cpp" />
     <ClCompile Include="MainGPU.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
