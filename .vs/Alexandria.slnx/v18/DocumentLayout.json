@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\eight\\source\\repos\\Alexandria\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:ShaderLoader.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:ShaderLoader.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -39,11 +39,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "ShaderLoader.h",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h",
               "RelativeDocumentMoniker": "ShaderLoader.h",
@@ -51,12 +51,11 @@
               "RelativeToolTip": "ShaderLoader.h",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-04-10T21:27:56.744Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T21:27:56.744Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "ShaderLoader.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp",
               "RelativeDocumentMoniker": "ShaderLoader.cpp",
@@ -64,8 +63,7 @@
               "RelativeToolTip": "ShaderLoader.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-10T21:27:49.553Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T21:27:49.553Z"
             },
             {
               "$type": "Document",
@@ -77,8 +75,7 @@
               "RelativeToolTip": "ConsoleLauncher.cpp",
               "ViewState": "AgIAABIAAAAAAAAAAAAAACcAAAA6AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-10T17:31:46.096Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T17:31:46.096Z"
             },
             {
               "$type": "Document",
@@ -106,13 +103,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "MainGPU.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeDocumentMoniker": "MainGPU.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeToolTip": "MainGPU.cpp",
-              "ViewState": "AgIAABUAAAAAAAAAAAAAAEwBAAANAAAAAAAAAA==",
+              "ViewState": "AgIAAIoBAAAAAAAAAAAAAO8CAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-04-09T22:51:42.498Z",
               "EditorCaption": ""
