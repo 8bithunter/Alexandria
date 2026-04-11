@@ -1,4 +1,5 @@
 #version 430 core
+
 layout(std430, binding = 0) readonly buffer Field { float field[]; };
 #define STRIDE 10
 
@@ -9,9 +10,12 @@ in float vSliceCoord;
 uniform int uRes;
 uniform int uMode;
 uniform float uOpacity;
-uniform float uSliceValue; // For slice planes
+uniform float uSliceValue;
 
 out vec4 FragColor;
+
+const float PI = 3.14159265359;
+const float INV_PI = 0.31830988618;
 
 vec3 hueToRgb(float h)
 {
@@ -31,9 +35,9 @@ float getContourValue(int mode, float re, float im)
 {
     if (mode >= 2) {
         float mag = sqrt(re*re + im*im);
-        return atan(mag * 0.02) / 3.14159265;
+        return atan(mag * 0.02)  * INV_PI;
     } else {
-        return atan(re * 0.02) / 3.14159265;
+        return atan(re * 0.02)  * INV_PI;
     }
 }
 

@@ -6,9 +6,9 @@ layout(location = 2) in float aSliceCoord;
 uniform mat4 uRotation;
 uniform int uRes;
 uniform int uMode;
-uniform float uOpacity; // New opacity uniform
-uniform float uSliceValue; // Brush position for slices
-uniform int uPlaneType; // 0=XY, 1=XZ, 2=YZ
+uniform float uOpacity;
+uniform float uSliceValue;
+uniform int uPlaneType;
 
 out float vPlaneType;
 out vec2 vTexCoord;
@@ -27,15 +27,13 @@ void main()
 
     gl_Position = uRotation * vec4(pos, 1.0);
 
-    // Pass texture coordinates based on plane type
-    if (uPlaneType == 0) { // XY plane
-        vTexCoord = pos.xy / float(uRes);
-    } else if (uPlaneType == 1) { // XZ plane
-        vTexCoord = vec2(pos.x / float(uRes), pos.z / float(uRes));
-    } else { // YZ plane
-        vTexCoord = vec2(pos.y / float(uRes), pos.z / float(uRes));
-    }
+    // Calculate texture coordinates based on plane type
+    // Use vector swizzle to avoid conditional branching
+    vec3 normalizedPos = pos / float(uRes);
+    vTexCoord = (uPlaneType == 0) ? normalizedPos.xy :
+                (uPlaneType == 1) ? normalizedPos.xz :
+                                    normalizedPos.yz;
 
     vPlaneType = float(uPlaneType);
-    vSliceCoord = (uPlaneType == 0) ? pos.z : ((uPlaneType == 1) ? pos.y : pos.x);
+    vSliceCoord = pos[(uPlaneType == 0) ? 2 : (uPlaneType == 1) ? 1 : 0];
 }
