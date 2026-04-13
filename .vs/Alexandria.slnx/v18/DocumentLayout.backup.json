@@ -7,6 +7,9 @@
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:ShaderLoader.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
@@ -21,9 +24,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:glad.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\include\\memory||{3B902123-F8A7-4915-9F01-361F908088D0}"
@@ -43,7 +43,7 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "ShaderLoader.h",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h",
               "RelativeDocumentMoniker": "ShaderLoader.h",
@@ -55,7 +55,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "ShaderLoader.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp",
               "RelativeDocumentMoniker": "ShaderLoader.cpp",
@@ -67,7 +67,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "ConsoleLauncher.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
               "RelativeDocumentMoniker": "ConsoleLauncher.cpp",
@@ -109,26 +109,26 @@
               "RelativeDocumentMoniker": "MainGPU.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeToolTip": "MainGPU.cpp",
-              "ViewState": "AgIAAJoBAAAAAAAAAIAwwLIBAABQAAAAAAAAAA==",
+              "ViewState": "AgIAAEwAAAAAAAAAAAAgwEAAAABQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-04-09T22:51:42.498Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 1,
               "Title": "Microsoft.CppBuild.targets",
               "DocumentMoniker": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
               "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
               "ToolTip": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
               "RelativeToolTip": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "ViewState": "AgIAAA4CAAAAAAAAAAASwCYCAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAP8BAAAAAAAAAAASwB4CAAAwAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
               "WhenOpened": "2026-04-09T23:21:51.99Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "glad.c",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\glad.c",
               "RelativeDocumentMoniker": "glad.c",

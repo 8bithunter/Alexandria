@@ -149,6 +149,8 @@ static std::string textVertSrc = loadShaderFile("shaders/text.vert");
 static std::string textFragSrc = loadShaderFile("shaders/text.frag");
 static std::string rectVertSrc = loadShaderFile("shaders/rect.vert");
 static std::string rectFragSrc = loadShaderFile("shaders/rect.frag");
+static std::string axesVertSrc = loadShaderFile("shaders/axes.vert");
+static std::string axesFragSrc = loadShaderFile("shaders/axes.frag");
 
 // =============================================================================
 // Global input state
@@ -383,6 +385,8 @@ int runSimulation(int simulationMode)
                                         compileShader(GL_FRAGMENT_SHADER, rectFragSrc.c_str()) });
 
 
+
+unsigned int axesProg = makeProgram({ compileShader(GL_VERTEX_SHADER, axesVertSrc.c_str()), compileShader(GL_FRAGMENT_SHADER, axesFragSrc.c_str()) });
     // ── Uniform locations ─────────────────────────────────────────────────────
     int uResU = glGetUniformLocation(computeProg, "uRes");
     int uInvH2U = glGetUniformLocation(computeProg, "uInvH2");
@@ -393,6 +397,7 @@ int runSimulation(int simulationMode)
     int uRotationU = glGetUniformLocation(fieldProg, "uRotation");
     int uFieldModeU = glGetUniformLocation(fieldProg, "uMode");
     int uFieldResU = glGetUniformLocation(fieldProg, "uRes");
+    int uFieldYOffsetU = glGetUniformLocation(fieldProg, "uYOffset");
 
     int uTxtOrigin = glGetUniformLocation(textProg, "uOrigin");
     int uTxtSize = glGetUniformLocation(textProg, "uCharSize");
@@ -404,6 +409,10 @@ int runSimulation(int simulationMode)
     int uRectOrigin = glGetUniformLocation(rectProg, "uRectOrigin");
     int uRectSize = glGetUniformLocation(rectProg, "uRectSize");
     int uRectColor = glGetUniformLocation(rectProg, "uRectColor");
+
+int uAxesRotationU = glGetUniformLocation(axesProg, "uRotation");
+int uAxesLengthU = glGetUniformLocation(axesProg, "uAxisLength");
+int uAxesOriginU = glGetUniformLocation(axesProg, "uOrigin");
 
     // ── Grid geometry ─────────────────────────────────────────────────────────
     const int   N = RES;
@@ -437,6 +446,45 @@ int runSimulation(int simulationMode)
         << "  Space             — pause / resume\n"
         << "  R                 — reset\n";
 
+
+// ── 3D Axes geometry ──────────────────────────────────────────────────────
+struct AxesVert { float x, y, z; float r, g, b; };
+std::vector<AxesVert> axesVerts;
+// All axes span -1.0 to 1.0 for consistency (simpler implementation)
+float axisLength = 2.0f;  // All axes span -1.0 to 1.0
+// X axis (red): -1.0 to 1.0
+axesVerts.push_back({-1.0f, 0, 0, 1, 0, 0});
+axesVerts.push_back({ 1.0f, 0, 0, 1, 0, 0});
+// Y axis (green): -1.0 to 1.0 (not 0 to 1)
+axesVerts.push_back({0, -1.0f, 0, 0, 1, 0});
+axesVerts.push_back({0, 1.0f, 0, 0, 1, 0});
+// Z axis (blue): -1.0 to 1.0
+axesVerts.push_back({0, 0, -1.0f, 0, 0, 1});
+axesVerts.push_back({0, 0, 1.0f, 0, 0, 1});
+// Add tick marks every 0.1 units (21 ticks: -1.0 to 1.0)
+for (int i = 0; i <= 20; ++i) {
+    float t = -1.0f + i * 0.1f; // from -1.0 to 1.0
+    // X axis ticks
+    axesVerts.push_back({ t, -0.05f, 0, 0.5f, 0, 0 });
+    axesVerts.push_back({ t, 0.05f, 0, 0.5f, 0, 0 });
+    // Y axis ticks
+    axesVerts.push_back({ -0.05f, t, 0, 0, 0.5f, 0 });
+    axesVerts.push_back({ 0.05f, t, 0, 0, 0.5f, 0 });
+    // Z axis ticks
+        axesVerts.push_back({ -0.05f, 0, t, 0, 0, 0.5f });
+        axesVerts.push_back({ 0.05f, 0, t, 0, 0, 0.5f });
+}
+unsigned int axesVAO, axesVBO;
+glGenVertexArrays(1, &axesVAO);
+glGenBuffers(1, &axesVBO);
+glBindVertexArray(axesVAO);
+glBindBuffer(GL_ARRAY_BUFFER, axesVBO);
+glBufferData(GL_ARRAY_BUFFER, axesVerts.size() * sizeof(AxesVert), axesVerts.data(), GL_STATIC_DRAW);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(AxesVert), (void*)0); // position
+glEnableVertexAttribArray(0);
+glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(AxesVert), (void*)(3 * sizeof(float))); // color
+glEnableVertexAttribArray(1);
+glBindVertexArray(0);
     // ── Field SSBOs ───────────────────────────────────────────────────────────
     const int STRIDE = 10;
     std::vector<float> zeroBuf(N * N * STRIDE, 0.0f);
@@ -672,16 +720,22 @@ int runSimulation(int simulationMode)
         //glDepthMask(simulationMode == 2 ? GL_FALSE : GL_TRUE); for transparency stuff
         glDepthMask(GL_TRUE);
 
-        glUseProgram(fieldProg);
-        glUniformMatrix4fv(uRotationU, 1, GL_FALSE, MVP);
-        glUniform1i(uFieldModeU, simulationMode);
-        glUniform1i(uFieldResU, N);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
-        glBindVertexArray(fieldVAO);
-        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
-
-        glDepthMask(GL_TRUE);
-
+// ── Field and axes ─────────────────────────────────────────────
+glUseProgram(fieldProg);
+glUniformMatrix4fv(uRotationU, 1, GL_FALSE, MVP);
+glUniform1i(uFieldModeU, simulationMode);
+glUniform1i(uFieldResU, N);
+    glUniform1f(uFieldYOffsetU, 0.5f); // Raise field up by 0.5 units
+glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+glBindVertexArray(fieldVAO);
+glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
+    glUseProgram(axesProg);
+    glUniform3f(uAxesOriginU, 0.0f, 0.0f, 0.0f); // Position at field center
+glUniformMatrix4fv(uAxesRotationU, 1, GL_FALSE, MVP);
+    glUniform1f(uAxesLengthU, 1.0f); // Scale to fit
+glLineWidth(3.0f); // Make axes thicker and visible
+glBindVertexArray(axesVAO);
+glDrawArrays(GL_LINES, 0, 132);
         // ── 2-D overlay ───────────────────────────────────────────────────────
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -746,6 +800,11 @@ int runSimulation(int simulationMode)
     glDeleteBuffers(1, &quadVBO);   glDeleteVertexArrays(1, &quadVAO);
     glDeleteProgram(computeProg);  glDeleteProgram(fieldProg);
     glDeleteProgram(textProg);     glDeleteProgram(rectProg);
+
+// ── Axes resources cleanup ─────────────────────────────────────────────────
+glDeleteBuffers(1, &axesVBO);
+glDeleteVertexArrays(1, &axesVAO);
+glDeleteProgram(axesProg);
     glfwTerminate();
     return 0;
 }

@@ -7,6 +7,7 @@ layout(std430, binding = 0) readonly buffer Field { float field[]; };
 uniform mat4 uRotation;
 uniform int uMode;
 uniform int uRes;
+uniform float uYOffset; // Field height offset
 out vec4 vColor;
 
 const float PI = 3.14159265359;
@@ -80,7 +81,7 @@ void main()
         value = 1.0;
     }
 
-    gl_Position = uRotation * vec4(aPos, height, 1.0);
+    gl_Position = uRotation * vec4(aPos, height + uYOffset, 1.0);
 
     vec3 lightDir = normalize(vec3(-0.4, 0.6, 1.0));
     float light = 0.25 + 0.75 * abs(dot(N, lightDir));
