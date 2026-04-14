@@ -18,6 +18,7 @@ layout(std430, binding = 1) writeonly buffer BufOut { float outData[]; };
 uniform int uRes;
 uniform float uInvH2;
 uniform float uDiffusion;
+uniform float uDensity;
 uniform float uDt;
 uniform int uMode;
 
@@ -90,8 +91,89 @@ void main()
         float newVy = bilinear(px, py, FY);
         newVx += uDiffusion * laplacian(r,l,u,d,c,FX) * uDt;
         newVy += uDiffusion * laplacian(r,l,u,d,c,FY) * uDt;
+        // Store advected velocity as intermediate result
         outData[base+FX] = newVx;
         outData[base+FY] = newVy;
+        outData[base+FZ] = 0.0;
+        outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
+        outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
+        outData[base+9] = 0.0;
+    }
+    else if (uMode == 4) {
+        // Compute divergence: ∇·u = ∂u/∂x + ∂v/∂y
+        // Store in FZ component (component 2)
+        float h = 2.0 / float(uRes - 1);
+        float inv2h = 0.5 / h;
+
+        float right_vx = get(r, FX);
+        float left_vx = get(l, FX);
+        float up_vy = get(u, FY);
+        float down_vy = get(d, FY);
+
+        float divergence = (right_vx - left_vx) * inv2h + (up_vy - down_vy) * inv2h;
+
+        // Copy velocity to output and store divergence
+        outData[base+FX] = get(c, FX);
+        outData[base+FY] = get(c, FY);
+        outData[base+FZ] = divergence;
+        outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
+        outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;
+        outData[base+9] = 0.0;
+    }
+    else if (uMode == 5) {
+        // Jacobi iteration for pressure solve: ∇²p = divergence
+        // Stores pressure in VZ component (component 5) during iterations
+        float div = get(c, FZ);
+        float h = 2.0 / float(uRes - 1);
+
+        // Get neighbor pressures (stored in VZ)
+        float p_right = get(r, VZ);
+        float p_left = get(l, VZ);
+        float p_up = get(u, VZ);
+        float p_down = get(d, VZ);
+
+        // Jacobi update: p_new = (p_left + p_right + p_up + p_down - div * h²) / 4
+        // The MINUS sign is critical - we solve ∇²p = divergence, not ∇²p = -divergence
+        float p_new = (p_left + p_right + p_up + p_down - div * h * h) * 0.25;
+
+        // Copy velocity and divergence, update only pressure component
+        outData[base+FX] = get(c, FX);
+        outData[base+FY] = get(c, FY);
+        outData[base+FZ] = get(c, FZ);
+        outData[base+VX] = get(c, VX);
+        outData[base+VY] = get(c, VY);
+        outData[base+VZ] = p_new;
+        outData[base+AX] = get(c, AX);
+        outData[base+AY] = get(c, AY);
+        outData[base+AZ] = get(c, AZ);
+        outData[base+9] = 0.0;
+    }
+    else if (uMode == 6) {
+        // Pressure projection: u_final = u_intermediate - Δt * (1/ρ) ∇p
+        // The factor dt/ρ scales the pressure gradient to ensure stability
+        float h = 2.0 / float(uRes - 1);
+        float inv2h = -uDt / (2.0 * h * uDensity); // Negative because we subtract
+
+        // Get pressure gradient
+        float p_right = get(r, VZ);
+        float p_left = get(l, VZ);
+        float p_up = get(u, VZ);
+        float p_down = get(d, VZ);
+
+        float dpx = (p_right - p_left) * inv2h;
+        float dpy = (p_up - p_down) * inv2h;
+
+        // Apply pressure correction with proper dt scaling
+        float vx = get(c, FX) + dpx;
+        float vy = get(c, FY) + dpy;
+
+        // Clamp to prevent blow-up
+        const float MAX_VEL = 10.0;
+        vx = clamp(vx, -MAX_VEL, MAX_VEL);
+        vy = clamp(vy, -MAX_VEL, MAX_VEL);
+
+        outData[base+FX] = vx;
+        outData[base+FY] = vy;
         outData[base+FZ] = 0.0;
         outData[base+VX] = 0; outData[base+VY] = 0; outData[base+VZ] = 0;
         outData[base+AX] = 0; outData[base+AY] = 0; outData[base+AZ] = 0;

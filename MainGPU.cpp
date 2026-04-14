@@ -169,6 +169,9 @@ static GlobeState rot;
 // frame in the paint section, then cleared.
 static bool  heatActive = false;
 static float heatCurX = 0.0f;
+// Cursor position in field space (normalized -1 to 1)
+static float cursorX = 0.0f;
+static float cursorY = 0.0f;
 static float heatCurY = 0.0f;   // OpenGL y (0 = bottom)
 static float heatDX = 0.0f;
 static float heatDY = 0.0f;
@@ -237,6 +240,8 @@ static void cursorPosCallback(GLFWwindow*, double x, double y)
     heatDY += newY - heatCurY;
     heatCurX = newX;
     heatCurY = newY;
+    cursorX = heatCurX;
+    cursorY = heatCurY;
 }
 
 // =============================================================================
@@ -387,10 +392,17 @@ int runSimulation(int simulationMode)
 
 
 unsigned int axesProg = makeProgram({ compileShader(GL_VERTEX_SHADER, axesVertSrc.c_str()), compileShader(GL_FRAGMENT_SHADER, axesFragSrc.c_str()) });
+static std::string topomapVertSrc = loadShaderFile("shaders/topomap.vert");
+static std::string topomapFragSrc = loadShaderFile("shaders/topomap.frag");
+unsigned int topomapProg = makeProgram({ compileShader(GL_VERTEX_SHADER, topomapVertSrc.c_str()), compileShader(GL_FRAGMENT_SHADER, topomapFragSrc.c_str()) });
+static std::string linegraphVertSrc = loadShaderFile("shaders/linegraph.vert");
+static std::string linegraphFragSrc = loadShaderFile("shaders/linegraph.frag");
+unsigned int linegraphProg = makeProgram({ compileShader(GL_VERTEX_SHADER, linegraphVertSrc.c_str()), compileShader(GL_FRAGMENT_SHADER, linegraphFragSrc.c_str()) });
     // ── Uniform locations ─────────────────────────────────────────────────────
     int uResU = glGetUniformLocation(computeProg, "uRes");
     int uInvH2U = glGetUniformLocation(computeProg, "uInvH2");
     int uDiffusionU = glGetUniformLocation(computeProg, "uDiffusion");
+    int uDensityU = glGetUniformLocation(computeProg, "uDensity");
     int uDtU = glGetUniformLocation(computeProg, "uDt");
     int uComputeModeU = glGetUniformLocation(computeProg, "uMode");
 
@@ -413,6 +425,23 @@ unsigned int axesProg = makeProgram({ compileShader(GL_VERTEX_SHADER, axesVertSr
 int uAxesRotationU = glGetUniformLocation(axesProg, "uRotation");
 int uAxesLengthU = glGetUniformLocation(axesProg, "uAxisLength");
 int uAxesOriginU = glGetUniformLocation(axesProg, "uOrigin");
+
+int uTopomapRotationU = glGetUniformLocation(topomapProg, "uRotation");
+int uTopomapModeU = glGetUniformLocation(topomapProg, "uMode");
+int uTopomapResU = glGetUniformLocation(topomapProg, "uRes");
+int uTopomapZOffsetU = glGetUniformLocation(topomapProg, "uZOffset");
+int uTopomapOpacityU = glGetUniformLocation(topomapProg, "uOpacity");
+int uTopomapFieldMinU = glGetUniformLocation(topomapProg, "uFieldMin");
+int uTopomapFieldMaxU = glGetUniformLocation(topomapProg, "uFieldMax");
+int uTopomapDrawContoursU = glGetUniformLocation(topomapProg, "uDrawContours");
+
+ int uLinegraphModeU = glGetUniformLocation(linegraphProg, "uMode");
+ int uLinegraphResU = glGetUniformLocation(linegraphProg, "uRes");
+ int uLinegraphCursorXU = glGetUniformLocation(linegraphProg, "uCursorX");
+ int uLinegraphCursorYU = glGetUniformLocation(linegraphProg, "uCursorY");
+ int uLinegraphOpacityU = glGetUniformLocation(linegraphProg, "uOpacity");
+ int uLinegraphAxisOffsetU = glGetUniformLocation(linegraphProg, "uAxisOffset");
+ int uLinegraphAxisU = glGetUniformLocation(linegraphProg, "uAxis");
 
     // ── Grid geometry ─────────────────────────────────────────────────────────
     const int   N = RES;
@@ -524,12 +553,72 @@ glBindVertexArray(0);
     glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(Vert), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
+// ── Topological map VAO ──────────────────────────────────────────────────
+// Create 21x21 grid for 20x20 cells (slices) for field visualization
+struct TopomapVert { float x, y, u, v; };
+std::vector<TopomapVert> topomapVerts;
+for (int i = 0; i <= 20; ++i) {
+    for (int j = 0; j <= 20; ++j) {
+
+        float x = -1.0f + i * (2.0f / 20.0f);
+        float y = -1.0f + j * (2.0f / 20.0f);
+        float u = float(j) / 20.0f;
+        float v = float(i) / 20.0f;
+        topomapVerts.push_back({x, y, u, v});
+    }
+}
+std::vector<unsigned int> topomapIndices;
+for (int i = 0; i < 20; ++i) {
+    for (int j = 0; j < 20; ++j) {
+        int bl = i * 21 + j; int br = i * 21 + (j + 1);
+        int tl = (i + 1) * 21 + j; int tr = (i + 1) * 21 + (j + 1);
+        topomapIndices.push_back(bl); topomapIndices.push_back(br); topomapIndices.push_back(tl);
+        topomapIndices.push_back(br); topomapIndices.push_back(tr); topomapIndices.push_back(tl);
+    }
+}
+unsigned int topomapVAO, topomapVBO, topomapEBO;
+glGenVertexArrays(1, &topomapVAO); glGenBuffers(1, &topomapVBO); glGenBuffers(1, &topomapEBO);
+glBindVertexArray(topomapVAO); glBindBuffer(GL_ARRAY_BUFFER, topomapVBO);
+glBufferData(GL_ARRAY_BUFFER, topomapVerts.size() * sizeof(TopomapVert), topomapVerts.data(), GL_STATIC_DRAW);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, topomapEBO);
+glBufferData(GL_ELEMENT_ARRAY_BUFFER, topomapIndices.size() * sizeof(unsigned int), topomapIndices.data(), GL_STATIC_DRAW);
+glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TopomapVert), (void*)0);
+glEnableVertexAttribArray(0);
+glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TopomapVert), (void*)(2 * sizeof(float)));
+glEnableVertexAttribArray(1);
+glBindVertexArray(0);
 
     // ── Shared unit-quad VAO ──────────────────────────────────────────────────
     float quadVerts[] = { 0,0, 1,0, 0,1,  1,0, 1,1, 0,1 };
     unsigned int quadVAO, quadVBO;
     glGenVertexArrays(1, &quadVAO); glGenBuffers(1, &quadVBO);
     glBindVertexArray(quadVAO);
+// ── Line graph VAOs ─────────────────────────────────────────────────────────
+struct LinegraphVert { float pos; float coord; };
+std::vector<LinegraphVert> horizLineVerts, vertLineVerts;
+const int LINE_SEGS = 20;
+for (int i = 0; i <= LINE_SEGS; ++i) {
+    float pos = -1.0f + i * (2.0f / LINE_SEGS);
+    float coord = float(i) / LINE_SEGS;
+    horizLineVerts.push_back({pos, coord});
+    vertLineVerts.push_back({pos, coord});
+}
+unsigned int linegraphVAO[2], linegraphVBO[2];
+glGenVertexArrays(2, linegraphVAO); glGenBuffers(2, linegraphVBO);
+for (int i = 0; i < 2; ++i) {
+    glBindVertexArray(linegraphVAO[i]);
+    glBindBuffer(GL_ARRAY_BUFFER, linegraphVBO[i]);
+    if (i == 0) {
+        glBufferData(GL_ARRAY_BUFFER, horizLineVerts.size() * sizeof(LinegraphVert), horizLineVerts.data(), GL_STATIC_DRAW);
+    } else {
+        glBufferData(GL_ARRAY_BUFFER, vertLineVerts.size() * sizeof(LinegraphVert), vertLineVerts.data(), GL_STATIC_DRAW);
+    }
+    glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(LinegraphVert), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(LinegraphVert), (void*)(sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindVertexArray(0);
+}
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
@@ -676,19 +765,49 @@ glBindVertexArray(0);
                     current = 1 - current; accumWave -= subDtWave; simTime += subDtWave;
                 }
             }
-            else if (simulationMode == 2) {
-                accumFluid += simBudget;
-                glUniform1f(uDiffusionU, 0.001f);   // kinematic viscosity
-                glUniform1i(uComputeModeU, 2);
-                glUniform1f(uDtU, subDtFluid);
-                while (accumFluid >= subDtFluid) {
-                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
-                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
-                    glDispatchCompute(groups, groups, 1);
-                    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-                    current = 1 - current; accumFluid -= subDtFluid; simTime += subDtFluid;
-                }
+    else if (simulationMode == 2) {
+        accumFluid += simBudget;
+        glUniform1f(uDiffusionU, 0.0001f); // kinematic viscosity (reduced for less viscous fluid)
+        glUniform1f(uDensityU, 1.0f); // fluid density
+        glUniform1f(uDtU, subDtFluid);
+        while (accumFluid >= subDtFluid) {
+            // Pass 1: Advection + diffusion
+            glUniform1i(uComputeModeU, 2);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+            glDispatchCompute(groups, groups, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            current = 1 - current;
+
+            // Pass 2: Compute divergence
+            glUniform1i(uComputeModeU, 4);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+            glDispatchCompute(groups, groups, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            current = 1 - current;
+
+            // Pass 3: Pressure solve (Jacobi iterations)
+            for (int i = 0; i < 20; i++) { // Fixed 20 iterations for now
+                glUniform1i(uComputeModeU, 5);
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+                glDispatchCompute(groups, groups, 1);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                current = 1 - current;
             }
+
+            // Pass 4: Project velocity (pressure projection)
+            glUniform1i(uComputeModeU, 6);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1 - current]);
+            glDispatchCompute(groups, groups, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            current = 1 - current;
+
+            accumFluid -= subDtFluid; simTime += subDtFluid;
+        }
+    }
             else {
                 accumSchrod += simBudget;
                 glUniform1f(uDiffusionU, DIFFUSION);
@@ -729,6 +848,61 @@ glUniform1i(uFieldResU, N);
 glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
 glBindVertexArray(fieldVAO);
 glDrawArrays(GL_TRIANGLES, 0, (GLsizei)mesh.size());
+    // Compute field min/max for proper contour scaling
+    float fieldMin = FLT_MAX;
+    float fieldMax = -FLT_MAX;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[current]);
+    void* fieldPtr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    if (fieldPtr) {
+        float* fieldData = (float*)fieldPtr;
+        for (int i = 0; i < N * N; i++) {
+            float val;
+            if (simulationMode >= 2) {
+                float re = fieldData[i * 10 + 0];
+                float im = fieldData[i * 10 + 1];
+                val = sqrtf(re*re + im*im);
+            } else {
+                val = fieldData[i * 10 + 0];
+            }
+            if (val < fieldMin) fieldMin = val;
+            if (val > fieldMax) fieldMax = val;
+        }
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    }
+// ── Topological map of field data ───────────────────────────────────────────
+glUseProgram(topomapProg);
+glUniformMatrix4fv(uTopomapRotationU, 1, GL_FALSE, MVP);
+    glUniform1f(uTopomapFieldMinU, fieldMin);
+    glUniform1f(uTopomapFieldMaxU, fieldMax);
+    glUniform1i(uTopomapDrawContoursU, 1);
+glUniform1i(uTopomapModeU, simulationMode);
+glUniform1i(uTopomapResU, N);
+glUniform1f(uTopomapZOffsetU, -1.0f); // Bottom of blue axis
+glUniform1f(uTopomapOpacityU, 0.7f); // 70% opaque
+glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+glBindVertexArray(topomapVAO);
+  glDrawElements(GL_TRIANGLES, 20 * 20 * 6, GL_UNSIGNED_INT, 0);
+
+// ── Line graphs ─────────────────────────────────────────────────────────────
+glUseProgram(linegraphProg);
+glUniform1i(uLinegraphModeU, simulationMode);
+glUniform1i(uLinegraphResU, N);
+glUniform1f(uLinegraphCursorXU, cursorX);
+glUniform1f(uLinegraphCursorYU, cursorY);
+glUniform1f(uLinegraphOpacityU, 1.0f);
+
+// Horizontal: along X at cursorY, positioned at Y = -1.0
+glUniform1f(uLinegraphAxisOffsetU, -1.0f);
+glUniform1i(uLinegraphAxisU, 0);
+glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[current]);
+glBindVertexArray(linegraphVAO[0]);
+glDrawArrays(GL_LINE_STRIP, 0, 21);
+
+// Vertical: along Y at cursorX, positioned at X = -1.0
+glUniform1f(uLinegraphAxisOffsetU, -1.0f);
+glUniform1i(uLinegraphAxisU, 1);
+glBindVertexArray(linegraphVAO[1]);
+glDrawArrays(GL_LINE_STRIP, 0, 21);
     glUseProgram(axesProg);
     glUniform3f(uAxesOriginU, 0.0f, 0.0f, 0.0f); // Position at field center
 glUniformMatrix4fv(uAxesRotationU, 1, GL_FALSE, MVP);

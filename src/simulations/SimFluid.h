@@ -4,9 +4,14 @@
 #include "../Simulation.h"
 
 // Navier-Stokes fluid simulation
-// Currently implements: semi-Lagrangian advection + viscosity (simplified)
-// TODO: Add divergence computation, pressure solve, and projection
-//       for full incompressible Navier-Stokes
+// Implements full incompressible Navier-Stokes equations:
+// ∂u/∂t = -(u·∇)u + ν∇²u - (1/ρ)∇p + f
+// ∇·u = 0 (incompressibility constraint)
+//
+// Uses operator splitting:
+// 1. Advection: semi-Lagrangian
+// 2. Diffusion: implicit viscosity
+// 3. Pressure projection: divergence → pressure solve → velocity correction
 class SimFluid : public Simulation {
 public:
     SimFluid();
@@ -23,14 +28,20 @@ public:
 
 private:
     void calculateTimestep();
+    void computeDivergenceAndPressure(float dt);
 
 private:
     SimulationContext* context;
     float accumulator;
-    float kinematicViscosity;  // ν
+    float kinematicViscosity; // ν - kinematic viscosity
+    float density;            // ρ - fluid density (proportionality constant)
     float timestep;
     float targetTimestep;
     bool initialized;
+
+    // Pressure solver parameters
+    static constexpr int MAX_PRESSURE_ITERATIONS = 50;
+    static constexpr float PRESSURE_TOLERANCE = 1e-5f;
 };
 
 #endif // SIM_FLUID_H
