@@ -7,6 +7,17 @@
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:MainGPU.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.frag||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\plane.frag||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.vert||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\field.vert||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\topomap.vert||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\topomap.vert||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
@@ -35,14 +46,6 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\plane.vert||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.frag||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\plane.frag||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.vert||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\field.vert||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.frag||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:shaders\\field.frag||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
@@ -65,9 +68,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|solutionrelative:ShaderLoader.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     },
     {
       "AbsoluteMoniker": "D:0:0:{ACBD8DF9-4302-4734-B99A-5A332C057313}|Alexandria.vcxproj|C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -99,19 +99,7 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 10,
-              "Title": "field.frag",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.frag",
-              "RelativeDocumentMoniker": "shaders\\field.frag",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.frag",
-              "RelativeToolTip": "shaders\\field.frag",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-04-13T23:29:25.368Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 2,
               "Title": "field.vert",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.vert",
               "RelativeDocumentMoniker": "shaders\\field.vert",
@@ -119,11 +107,12 @@
               "RelativeToolTip": "shaders\\field.vert",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-04-13T23:29:25.462Z"
+              "WhenOpened": "2026-04-13T23:29:25.462Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 1,
               "Title": "plane.frag",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.frag",
               "RelativeDocumentMoniker": "shaders\\plane.frag",
@@ -131,23 +120,12 @@
               "RelativeToolTip": "shaders\\plane.frag",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-04-13T23:29:25.562Z"
+              "WhenOpened": "2026-04-13T23:29:25.562Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "plane.vert",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.vert",
-              "RelativeDocumentMoniker": "shaders\\plane.vert",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.vert",
-              "RelativeToolTip": "shaders\\plane.vert",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-04-13T23:29:25.663Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 9,
               "Title": "rect.frag",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\rect.frag",
               "RelativeDocumentMoniker": "shaders\\rect.frag",
@@ -159,7 +137,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 8,
               "Title": "rect.vert",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\rect.vert",
               "RelativeDocumentMoniker": "shaders\\rect.vert",
@@ -171,7 +149,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 7,
               "Title": "text.frag",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\text.frag",
               "RelativeDocumentMoniker": "shaders\\text.frag",
@@ -183,7 +161,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 6,
               "Title": "text.vert",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\text.vert",
               "RelativeDocumentMoniker": "shaders\\text.vert",
@@ -195,7 +173,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 5,
               "Title": "topomap.frag",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\topomap.frag",
               "RelativeDocumentMoniker": "shaders\\topomap.frag",
@@ -207,7 +185,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 4,
               "Title": "topomap.vert",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\topomap.vert",
               "RelativeDocumentMoniker": "shaders\\topomap.vert",
@@ -219,7 +197,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 14,
               "Title": "axes.vert",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\axes.vert",
               "RelativeDocumentMoniker": "shaders\\axes.vert",
@@ -231,20 +209,57 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Microsoft.CppBuild.targets",
+              "DocumentMoniker": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "ToolTip": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "RelativeToolTip": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
+              "ViewState": "AgIAAMMBAAAAAAAAAAArwNgBAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
+              "WhenOpened": "2026-04-09T23:21:51.99Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "field.frag",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.frag",
+              "RelativeDocumentMoniker": "shaders\\field.frag",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\field.frag",
+              "RelativeToolTip": "shaders\\field.frag",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-13T23:29:25.368Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 0,
               "Title": "MainGPU.cpp",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeDocumentMoniker": "MainGPU.cpp",
               "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\MainGPU.cpp",
               "RelativeToolTip": "MainGPU.cpp",
-              "ViewState": "AgIAAFwDAAAAAAAAAIAwwIADAAAeAAAAAAAAAA==",
+              "ViewState": "AgIAAC0AAAAAAAAAAAAAALoCAAA3AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-04-09T22:51:42.498Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 10,
+              "Title": "plane.vert",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.vert",
+              "RelativeDocumentMoniker": "shaders\\plane.vert",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\plane.vert",
+              "RelativeToolTip": "shaders\\plane.vert",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-13T23:29:25.663Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
               "Title": "compute.glsl",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\compute.glsl",
               "RelativeDocumentMoniker": "shaders\\compute.glsl",
@@ -256,7 +271,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 13,
               "Title": "common.glsl",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\common.glsl",
               "RelativeDocumentMoniker": "shaders\\common.glsl",
@@ -268,7 +283,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 15,
               "Title": "axes.frag",
               "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\shaders\\axes.frag",
               "RelativeDocumentMoniker": "shaders\\axes.frag",
@@ -277,42 +292,6 @@
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2026-04-13T23:29:24.678Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 17,
-              "Title": "ShaderLoader.h",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h",
-              "RelativeDocumentMoniker": "ShaderLoader.h",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h",
-              "RelativeToolTip": "ShaderLoader.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-04-10T21:27:56.744Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 15,
-              "Title": "ShaderLoader.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp",
-              "RelativeDocumentMoniker": "ShaderLoader.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp",
-              "RelativeToolTip": "ShaderLoader.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-10T21:27:49.553Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 18,
-              "Title": "ConsoleLauncher.cpp",
-              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
-              "RelativeDocumentMoniker": "ConsoleLauncher.cpp",
-              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
-              "RelativeToolTip": "ConsoleLauncher.cpp",
-              "ViewState": "AgIAABIAAAAAAAAAAAAAACcAAAA6AAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-04-10T17:31:46.096Z"
             },
             {
               "$type": "Document",
@@ -340,15 +319,39 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 17,
+              "Title": "ShaderLoader.h",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h",
+              "RelativeDocumentMoniker": "ShaderLoader.h",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.h",
+              "RelativeToolTip": "ShaderLoader.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2026-04-10T21:27:56.744Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 16,
-              "Title": "Microsoft.CppBuild.targets",
-              "DocumentMoniker": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "ToolTip": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "RelativeToolTip": "..\\..\\..\\..\\..\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Microsoft\\VC\\v180\\Microsoft.CppBuild.targets",
-              "ViewState": "AgIAAP8BAAAAAAAAAAASwB4CAAAwAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
-              "WhenOpened": "2026-04-09T23:21:51.99Z"
+              "Title": "ShaderLoader.cpp",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp",
+              "RelativeDocumentMoniker": "ShaderLoader.cpp",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ShaderLoader.cpp",
+              "RelativeToolTip": "ShaderLoader.cpp",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-04-10T21:27:49.553Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 18,
+              "Title": "ConsoleLauncher.cpp",
+              "DocumentMoniker": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
+              "RelativeDocumentMoniker": "ConsoleLauncher.cpp",
+              "ToolTip": "C:\\Users\\eight\\source\\repos\\Alexandria\\ConsoleLauncher.cpp",
+              "RelativeToolTip": "ConsoleLauncher.cpp",
+              "ViewState": "AgIAABIAAAAAAAAAAAAAACcAAAA6AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-04-10T17:31:46.096Z"
             },
             {
               "$type": "Document",
