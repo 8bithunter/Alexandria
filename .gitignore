@@ -23,7 +23,16 @@
 *.dylib
 *.dll
 *.so.*
+*.lib
 
+# IDE files
+.vs/
+.vscode/
+.claude/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
 
 # Fortran module files
 *.mod
@@ -67,3 +76,17 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# cmake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+CMakeUserPresets.json

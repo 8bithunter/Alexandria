@@ -1,6 +1,7 @@
 #include "SimWave.h"
 #include <glad/glad.h>
 #include <cmath>
+#include "SimulationRegistry.h"
 
 SimWave::SimWave() : context(nullptr), accumulator(0.0f),
     waveSpeed(1.0f), timestep(0.0f), targetTimestep(0.0f),

@@ -1,7 +1,8 @@
 #ifndef SIM_WAVE_H
 #define SIM_WAVE_H
 
-#include "../Simulation.h"
+
+#include "Simulation.h"
 
 // Wave equation simulation: ∂²u/∂t² = c² ∇²u
 // Uses leapfrog integration with velocity damping

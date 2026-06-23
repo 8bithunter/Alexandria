@@ -1,7 +1,7 @@
 #ifndef SIM_DIFFUSION_H
 #define SIM_DIFFUSION_H
 
-#include "../Simulation.h"
+#include "Simulation.h"
 
 // Diffusion simulation: ∂u/∂t = D ∇²u
 class SimDiffusion : public Simulation {

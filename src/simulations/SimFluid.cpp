@@ -1,6 +1,7 @@
 #include "SimFluid.h"
 #include <glad/glad.h>
 #include <cmath>
+#include "SimulationRegistry.h"
 
 SimFluid::SimFluid() : context(nullptr), accumulator(0.0f),
 kinematicViscosity(0.0001f), density(1.0f), timestep(0.0f), targetTimestep(0.0f),
@@ -34,7 +35,7 @@ void SimFluid::computeDivergenceAndPressure(float dt) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, context->ssbo[context->currentBuffer]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, context->ssbo[1 - context->currentBuffer]);
     glDispatchCompute(context->groups, context->groups, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BUFFER_BARRIER_BIT);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     context->currentBuffer = 1 - context->currentBuffer;
 
     // Step 2: Solve pressure Poisson equation (∇²p = divergence)
@@ -47,7 +48,7 @@ void SimFluid::computeDivergenceAndPressure(float dt) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, context->ssbo[context->currentBuffer]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, context->ssbo[1 - context->currentBuffer]);
         glDispatchCompute(context->groups, context->groups, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         context->currentBuffer = 1 - context->currentBuffer;
 
         // TODO: Could add convergence check here by reading back divergence residual
@@ -65,7 +66,7 @@ void SimFluid::computeDivergenceAndPressure(float dt) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, context->ssbo[context->currentBuffer]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, context->ssbo[1 - context->currentBuffer]);
     glDispatchCompute(context->groups, context->groups, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BUFFER_BARRIER_BIT);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
 void SimFluid::update(float simBudget, float& simTime) {
@@ -91,7 +92,7 @@ void SimFluid::update(float simBudget, float& simTime) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, context->ssbo[context->currentBuffer]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, context->ssbo[1 - context->currentBuffer]);
         glDispatchCompute(context->groups, context->groups, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         context->currentBuffer = 1 - context->currentBuffer;
 
         // Second pass: compute divergence, solve pressure, project velocity

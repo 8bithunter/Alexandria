@@ -1,6 +1,7 @@
 #include "SimDiffusion.h"
 #include <glad/glad.h>
 #include <cmath>
+#include "SimulationRegistry.h"
 
 SimDiffusion::SimDiffusion() : context(nullptr), accumulator(0.0f),
     diffusionCoefficient(0.01f), timestep(0.0f), targetTimestep(0.0f), initialized(false) {

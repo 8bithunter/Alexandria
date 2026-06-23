@@ -14,7 +14,7 @@ struct SimulationContext {
     GLuint ssboPres[2];       // Pressure buffers (for Navier-Stokes)
 
     // Uniform locations (cached)
-    int uRes, uInvH2, uDiffusion, uDt, uMode;
+    int uRes, uInvH2, uDiffusion, uDt, uMode, uDensity;
     int uRotation, uFieldMode, uFieldRes;
     int uTxtOrigin, uTxtSize, uTxtAdvance, uTxtFont, uTxtChars, uTxtColor;
     int uRectOrigin, uRectSize, uRectColor;

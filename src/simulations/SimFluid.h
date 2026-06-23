@@ -1,7 +1,7 @@
 #ifndef SIM_FLUID_H
 #define SIM_FLUID_H
 
-#include "../Simulation.h"
+#include "Simulation.h"
 
 // Navier-Stokes fluid simulation
 // Implements full incompressible Navier-Stokes equations:

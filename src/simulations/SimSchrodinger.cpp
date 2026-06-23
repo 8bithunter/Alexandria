@@ -1,6 +1,7 @@
 #include "SimSchrodinger.h"
 #include <glad/glad.h>
 #include <cmath>
+#include "SimulationRegistry.h"
 
 SimSchrodinger::SimSchrodinger() : context(nullptr), accumulator(0.0f),
     planckScale(1.0f), timestep(0.0f), targetTimestep(0.0f),

@@ -1,7 +1,7 @@
 #ifndef SIM_SCHRODINGER_H
 #define SIM_SCHRODINGER_H
 
-#include "../Simulation.h"
+#include "Simulation.h"
 
 // Schrödinger equation: i ∂ψ/∂t = –½ ∇²ψ
 // Uses split-step method with alternating real/imaginary updates

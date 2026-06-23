@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cfloat>
 #include <cstdint>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
