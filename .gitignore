@@ -39,6 +39,7 @@ rules.ninja
 *.ipch
 
 # VS Code
+.vscode/
 
 # Object files
 
