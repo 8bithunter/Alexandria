@@ -8,4 +8,7 @@
 
 ![gif](./Alextitle.gif)
 
-Above is an example of a visulation of the heat equation, run on Alexandria.
+
+<div align="center">
+  <p><strong>Above is an example of a visulation of the heat equation, run on Alexandria.</strong></p>
+</div>
